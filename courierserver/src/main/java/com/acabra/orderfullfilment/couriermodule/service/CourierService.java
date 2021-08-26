@@ -1,5 +1,7 @@
 package com.acabra.orderfullfilment.couriermodule.service;
 
+import java.util.NoSuchElementException;
+
 public interface CourierService {
     /**
      * Looks for available couriers and assigns one to the given order
@@ -14,4 +16,11 @@ public interface CourierService {
      * @return id of the dispatch courier
      */
     int dispatch();
+
+    /**
+     *
+     * @param courierId
+     * @throws NoSuchElementException
+     */
+    void reportOrderDelivered(int courierId) throws NoSuchElementException;
 }

@@ -1,38 +1,51 @@
 package com.acabra.orderfullfilment.couriermodule.model;
 
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Courier {
 
     public final int id;
     public final String name;
+    final static Random arrivalTime = new Random();
+    private static final int TWELVE_INCLUSIVE = 13;
 
-    final AtomicReference<CourierStatus> status;
-    final AtomicReference<String> orderId;
-    transient final ReentrantLock lock = new ReentrantLock(false);
+    private final AtomicReference<CourierStatus> status;
 
-    public Courier(int id, String name, CourierStatus status, String opOrderId) {
+    private Courier(int id, String name, CourierStatus status) {
         this.id = id;
         this.name = name;
         this.status = new AtomicReference<>(status);
-        this.orderId = new AtomicReference<>(opOrderId);
-    }
-
-    public static Courier ofAssigned(int id, String name, String orderId) {
-        return new Courier(id, name, CourierStatus.MATCHED, orderId);
     }
 
     public static Courier ofDispatched(int id, String name) {
-        return new Courier(id, name, CourierStatus.DISPATCHED, null);
+        return new Courier(id, name, CourierStatus.DISPATCHED);
     }
 
-    public void acceptOrder(String orderId) {
-        this.status.set(CourierStatus.MATCHED);
-        this.orderId.set(orderId);
+    public static Courier ofAvailable(int id, String name) {
+        return new Courier(id, name, CourierStatus.AVAILABLE);
     }
 
     public void dispatch() {
-        this.status.set(CourierStatus.MATCHED);
+        this.status.set(CourierStatus.DISPATCHED);
+    }
+
+    public void orderDelivered() {
+        if(CourierStatus.AVAILABLE == this.status.get()) {
+            throw new IllegalStateException("Courier is already available");
+        }
+        this.status.set(CourierStatus.AVAILABLE);
+    }
+
+    public boolean isAvailable() {
+        return CourierStatus.AVAILABLE == this.status.get();
+    }
+
+    public CourierStatus getStatus() {
+        return this.status.get();
+    }
+
+    public static int calculateArrivalTime() {
+        return Math.abs(arrivalTime.nextInt(TWELVE_INCLUSIVE) + 3);
     }
 }

@@ -16,14 +16,14 @@ public class CourierController {
     }
 
     @PostMapping
-    @RequestMapping("/match")
-    public ResponseEntity<?> matchToOder(@RequestParam("orderid") String orderId) {
+    @RequestMapping("/dispatch-matched")
+    public ResponseEntity<?> matchToOder(@RequestParam("orderId") String orderId) {
         int courierId = courierService.matchToOrder(orderId);
         return new ResponseEntity<>(courierId, HttpStatus.OK);
     }
 
     @PostMapping
-    @RequestMapping("/dispatch")
+    @RequestMapping("/dispatch-fifo")
     public ResponseEntity<?> dispatch() {
         int courierId = courierService.dispatch();
         return new ResponseEntity<>(courierId, HttpStatus.OK);
