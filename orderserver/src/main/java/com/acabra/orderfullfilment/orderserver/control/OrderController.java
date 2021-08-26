@@ -1,6 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.control;
 
-import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
+import com.acabra.orderfullfilment.orderserver.core.OrderProcessorImpl;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponse;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponseImpl;
@@ -23,9 +23,9 @@ import java.util.Optional;
 public class OrderController {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
-    private final OrderProcessor orderProcessor;
+    private final OrderProcessorImpl orderProcessor;
 
-    public OrderController(OrderProcessor orderService) {
+    public OrderController(OrderProcessorImpl orderService) {
         this.orderProcessor = orderService;
     }
 

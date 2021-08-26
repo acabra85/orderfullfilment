@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @SpringBootApplication
 public class OrderGeneratorApp {
@@ -32,7 +33,9 @@ public class OrderGeneratorApp {
     public CommandLineRunner run(OrderDispatcher orderDispatcher) throws Exception {
         return args -> {
             logger.info("Starting CLI ...");
-            orderDispatcher.dispatch(readOrdersFromFile());
+            List<DeliveryOrderRequest> orders = readOrdersFromFile();
+            orderDispatcher.dispatch(orders);
+            orderDispatcher.registerListener().await(orders.size(), TimeUnit.SECONDS);
             logger.info("Finishing CLI ...");
         };
     }

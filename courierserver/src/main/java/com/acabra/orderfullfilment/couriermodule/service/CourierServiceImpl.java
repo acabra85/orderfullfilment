@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.couriermodule.service;
 
 import com.acabra.orderfullfilment.couriermodule.model.AssignmentDetails;
 import com.acabra.orderfullfilment.couriermodule.model.Courier;
+import com.acabra.orderfullfilment.couriermodule.task.EventDispatcher;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayDeque;
@@ -16,6 +17,7 @@ public class CourierServiceImpl implements CourierService {
     private final HashMap<Integer, AssignmentDetails> assignments = new HashMap<>();
     private final ArrayDeque<Courier> availableCouriers = new ArrayDeque<>();
     private final AtomicInteger idControl = new AtomicInteger();
+    private final EventDispatcher dispatcher;
 
     private Courier buildDispatchedCourier() {
         int id = idControl.getAndIncrement();
@@ -38,6 +40,10 @@ public class CourierServiceImpl implements CourierService {
         return courier;
     }
 
+    public CourierServiceImpl(EventDispatcher dispatcher) {
+        this.dispatcher = dispatcher;
+    }
+
     @Override
     synchronized public int matchToOrder(String orderId) {
         Courier courier = retrieveCourier();
@@ -50,7 +56,9 @@ public class CourierServiceImpl implements CourierService {
     synchronized public int dispatch() {
         Courier courier = retrieveCourier();
         dispatchedCouriers.put(courier.id, courier);
-        assignments.put(courier.id, AssignmentDetails.pending(Courier.calculateArrivalTime()));
+        AssignmentDetails pending = AssignmentDetails.pending(Courier.calculateArrivalTime());
+        assignments.put(courier.id, pending);
+        this.dispatcher.schedule(System.currentTimeMillis() + 1000L * pending.travelTime , courier.id);
         return courier.id;
     }
 

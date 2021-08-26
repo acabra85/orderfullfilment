@@ -1,40 +1,12 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderserver.dto.OrderMapper;
-import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-import com.acabra.orderfullfilment.orderserver.service.CourierDispatcher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
-@Service
-public class OrderProcessor {
-
-    private static final Logger logger = LoggerFactory.getLogger(OrderProcessor.class);
-
-    private final CourierDispatcher courierDispatcher;
-    private static final OrderMapper orderMapper = new OrderMapper();
-    private final KitchenClock clock = new KitchenClock();
-
-    public OrderProcessor(CourierDispatcher courierDispatcher) {
-        this.courierDispatcher = courierDispatcher;
-    }
-
-    public void processOrder(DeliveryOrderRequest orderRequest) {
-        DeliveryOrder order = orderMapper.fromDeliveryOrderRequest(orderRequest, clock.getTime());
-        logger.info("Order received : {} at: {}" , order.id, order.receivedTime);
-        courierDispatcher.dispatchOrder(order);
-    }
-
-    private static final class KitchenClock {
-
-        private static final  AtomicInteger internalClock = new AtomicInteger(0);
-
-        public int getTime() {
-            return internalClock.getAndIncrement();
-        }
-    }
+public interface OrderProcessor {
+    /**
+     * Request a dispatch of a courier
+     * Request meal cooking to the kitchen
+     * @param orderRequest an order request
+     */
+    void processOrder(DeliveryOrderRequest orderRequest);
 }

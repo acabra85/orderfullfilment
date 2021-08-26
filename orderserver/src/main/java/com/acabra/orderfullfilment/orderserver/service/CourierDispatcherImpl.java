@@ -8,16 +8,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class CourierDispatcherImpl implements CourierDispatcher {
 
-    private final CourierDispatchStrategy dispatcher;
+    private final CourierDispatchStrategy courierDispatcher;
     private final static Logger logger = LoggerFactory.getLogger(CourierDispatcherImpl.class);
+    private final KitchenService kitchen;
 
-    public CourierDispatcherImpl(CourierDispatchStrategy dispatchStrategy) {
-        this.dispatcher = dispatchStrategy;
+    public CourierDispatcherImpl(CourierDispatchStrategy dispatchStrategy, KitchenService kitchen) {
+        this.courierDispatcher = dispatchStrategy;
+        this.kitchen = kitchen;
     }
 
     @Override
     public void dispatchOrder(DeliveryOrder order) {
         logger.info("dispatching order {}:" + order.id);
-        dispatcher.dispatchCourier(order);
+        courierDispatcher.dispatchCourier(order);
+        kitchen.cookOrder(order);
     }
 }
