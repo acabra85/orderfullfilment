@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.acabra.orderfullfilment</groupId>
-    <artifactId>couriermodule</artifactId>
+    <artifactId>courierserver</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>courier</name>
     <description>courier</description>
