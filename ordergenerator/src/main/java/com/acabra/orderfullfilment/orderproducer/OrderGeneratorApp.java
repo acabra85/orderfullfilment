@@ -10,9 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +37,7 @@ public class OrderGeneratorApp {
         };
     }
 
-    private List<DeliveryOrderRequest> readOrdersFromFile() {
+    public List<DeliveryOrderRequest> readOrdersFromFile() {
         try {
             URL resource = Objects.requireNonNull(OrderGeneratorApp.class.getClassLoader().getResource("small_orders.json"));
             File src = new File(resource.getFile());

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties
 public class DeliveryOrderRequest {
+    public static final String SIG_PILL_ID = "SIG_PILL";
     public final int prepTime;
     public final String name;
     public final String id;
@@ -17,6 +18,10 @@ public class DeliveryOrderRequest {
         this.prepTime = prepTime;
         this.name = name;
         this.id = id;
+    }
+
+    public static DeliveryOrderRequest ofSigPill() {
+        return new DeliveryOrderRequest(SIG_PILL_ID, "", -1);
     }
 
     @Override
