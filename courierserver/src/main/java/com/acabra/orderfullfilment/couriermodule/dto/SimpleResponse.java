@@ -16,6 +16,15 @@ public class SimpleResponse {
         this.body = body;
     }
 
+    @Override
+    public String toString() {
+        return "SimpleResponse{" +
+                "statusCode=" + statusCode +
+                ", message='" + message + '\'' +
+                ", body='" + body + '\'' +
+                '}';
+    }
+
     public int getStatusCode() {
         return statusCode;
     }

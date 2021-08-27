@@ -1,7 +1,6 @@
 package com.acabra.orderfullfilment.couriermodule.service;
 
-import com.acabra.orderfullfilment.couriermodule.config.RestClientConfig;
-import com.acabra.orderfullfilment.couriermodule.task.EventDispatcher;
+import com.acabra.orderfullfilment.couriermodule.task.CourierDispatcher;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,22 +9,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestTemplate;
 
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = {EventDispatcher.class})
+@ContextConfiguration(classes = {CourierDispatcher.class})
 class CourierServiceImplTest {
 
     CourierService underTest;
 
     @Autowired
-    EventDispatcher eventDispatcher;
+    CourierDispatcher courierDispatcher;
 
     private MockRestServiceServer mockServer;
 
     @BeforeEach
     void setUp() {
-        underTest = new CourierServiceImpl(eventDispatcher);
+        underTest = new CourierServiceImpl(courierDispatcher);
     }
     @Test
     public void test() {

@@ -3,24 +3,17 @@ package com.acabra.orderfullfilment.couriermodule.service;
 import java.util.NoSuchElementException;
 
 public interface CourierService {
-    /**
-     * Looks for available couriers and assigns one to the given order
-     * This service always succeeds, in case no drivers are available a new one is added to the system
-     * @param orderId the orderId of the meal delivery order
-     * @return id of the driver matched to pick-up the order at the restaurant
-     */
-    int matchToOrder(String orderId);
 
     /**
-     * Dispatches a courier to the kitchen in order to pick up the next available order
-     * @return id of the dispatch courier
+     * Dispatches a courier to the kitchen in order for order pickup
+     * @return id of the courier dispatched
      */
     int dispatch();
 
     /**
-     *
-     * @param courierId
-     * @throws NoSuchElementException
+     * Releases a courier from the assignment, to get the status back to Available
+     * @param courierId the id of the courier to release
+     * @throws NoSuchElementException if the given id does not match an Assigned Courier
      */
-    void reportOrderDelivered(int courierId) throws NoSuchElementException;
+    void release(int courierId) throws NoSuchElementException;
 }

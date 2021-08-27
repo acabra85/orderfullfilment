@@ -4,6 +4,7 @@ import com.acabra.orderfullfilment.orderserver.core.OrderProcessorImpl;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponse;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponseImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -20,9 +21,9 @@ import java.util.Optional;
 @RequestMapping(value = "/api/orders",
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE)
+@Slf4j
 public class OrderController {
 
-    private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
     private final OrderProcessorImpl orderProcessor;
 
     public OrderController(OrderProcessorImpl orderService) {
