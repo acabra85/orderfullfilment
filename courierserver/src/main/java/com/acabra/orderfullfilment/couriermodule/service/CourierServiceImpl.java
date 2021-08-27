@@ -2,7 +2,7 @@ package com.acabra.orderfullfilment.couriermodule.service;
 
 import com.acabra.orderfullfilment.couriermodule.model.AssignmentDetails;
 import com.acabra.orderfullfilment.couriermodule.model.Courier;
-import com.acabra.orderfullfilment.couriermodule.task.EventDispatcher;
+import com.acabra.orderfullfilment.couriermodule.task.CourierDispatcher;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayDeque;
@@ -17,7 +17,7 @@ public class CourierServiceImpl implements CourierService {
     private final HashMap<Integer, AssignmentDetails> assignments = new HashMap<>();
     private final ArrayDeque<Courier> availableCouriers = new ArrayDeque<>();
     private final AtomicInteger idControl = new AtomicInteger();
-    private final EventDispatcher dispatcher;
+    private final CourierDispatcher dispatcher;
 
     private Courier buildDispatchedCourier() {
         int id = idControl.getAndIncrement();
@@ -40,16 +40,8 @@ public class CourierServiceImpl implements CourierService {
         return courier;
     }
 
-    public CourierServiceImpl(EventDispatcher dispatcher) {
+    public CourierServiceImpl(CourierDispatcher dispatcher) {
         this.dispatcher = dispatcher;
-    }
-
-    @Override
-    synchronized public int matchToOrder(String orderId) {
-        Courier courier = retrieveCourier();
-        dispatchedCouriers.put(courier.id, courier);
-        assignments.put(courier.id, AssignmentDetails.of(orderId, Courier.calculateArrivalTime()));
-        return courier.id;
     }
 
     @Override
@@ -58,17 +50,18 @@ public class CourierServiceImpl implements CourierService {
         dispatchedCouriers.put(courier.id, courier);
         AssignmentDetails pending = AssignmentDetails.pending(Courier.calculateArrivalTime());
         assignments.put(courier.id, pending);
-        this.dispatcher.schedule(System.currentTimeMillis() + 1000L * pending.travelTime , courier.id);
+        this.dispatcher.schedule(pending.travelTime, courier.id);
         return courier.id;
     }
 
     @Override
-    synchronized public void reportOrderDelivered(int courierId) throws NoSuchElementException {
+    synchronized public void release(int courierId) throws NoSuchElementException {
         AssignmentDetails assignmentDetails = this.assignments.get(courierId);
         if(null != assignmentDetails) {
             Courier courier = this.dispatchedCouriers.get(courierId);
             courier.orderDelivered();
             this.dispatchedCouriers.put(courierId, null);
+            this.assignments.remove(courierId);
             this.availableCouriers.add(courier);
         }
         String error = String.format("The given id [%d] does not correspond to an assigned courier", courierId);

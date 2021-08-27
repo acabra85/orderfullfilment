@@ -1,18 +1,17 @@
 package com.acabra.orderfullfilment.orderserver.model;
 
-import java.util.Objects;
 import java.util.UUID;
 
 public class DeliveryOrder {
     public final String id;
     public final String name;
-    public final int prepTime;
-    public final int receivedTime;
+    public final long prepTime;
+    public final long receivedTime;
 
-    public DeliveryOrder(String id, String name, int prepTime, int receivedTime) {
+    public DeliveryOrder(String id, String name, int prepTime, long receivedTime) {
         this.id = id;
         this.name = name;
-        this.prepTime = prepTime;
+        this.prepTime = prepTime * 1000L;
         this.receivedTime = receivedTime;
     }
 
@@ -31,8 +30,12 @@ public class DeliveryOrder {
         return name;
     }
 
-    public int getPrepTime() {
+    public long getPrepTime() {
         return prepTime;
+    }
+
+    public long getReceivedTime() {
+        return receivedTime;
     }
 
     @Override
@@ -50,11 +53,11 @@ public class DeliveryOrder {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         DeliveryOrder that = (DeliveryOrder) o;
-        return id.equals(that.id) && receivedTime == that.receivedTime;
+        return id.equals(that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, receivedTime);
+        return id.hashCode();
     }
 }

@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.LongAdder;
 @Service
 public class OrderDispatcher {
 
-    static final String ORDERS_RESOURCE = "http://localhost:9000/api/orders";
+    static final String ORDERS_RESOURCE = "http://localhost:9000/orderserver/api/orders";
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private final LongAdder orderSuccessCounter = new LongAdder();
     private final LongAdder orderFailures = new LongAdder();
@@ -30,8 +30,8 @@ public class OrderDispatcher {
     public void dispatch(final List<DeliveryOrderRequest> orders) {
         scheduledExecutorService.scheduleAtFixedRate(
                 new PostDeliveryOrderTask(this, orders.iterator()),
-                0L, //delay
-                1L, TimeUnit.SECONDS);
+                500L, //delay
+                1000L, TimeUnit.MILLISECONDS);
     }
 
     public OrderDispatcherStatus totalOrders() {

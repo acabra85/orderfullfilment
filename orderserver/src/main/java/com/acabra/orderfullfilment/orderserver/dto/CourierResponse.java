@@ -14,6 +14,14 @@ public class CourierResponse {
         this.message = message;
     }
 
+    @Override
+    public String toString() {
+        return "CourierResponse{" +
+                "courierId=" + courierId +
+                ", message='" + message + '\'' +
+                '}';
+    }
+
     public int getCourierId() {
         return courierId;
     }

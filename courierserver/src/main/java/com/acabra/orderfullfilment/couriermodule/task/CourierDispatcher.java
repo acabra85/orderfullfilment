@@ -6,32 +6,37 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
-public class EventDispatcher {
+public class CourierDispatcher {
 
-    private static final String COURIER_ARRIVED_RESOURCE = "http://localhost:9000/api/pickup";
+    private static final String COURIER_ARRIVED_RESOURCE = "http://localhost:9000/orderserver/api/pickup";
     private static final HttpHeaders HEADERS = new HttpHeaders() {{setContentType(MediaType.APPLICATION_JSON);}};
     private final RestTemplate restTemplate;
     private final ScheduledExecutorService executorService;
 
-    public EventDispatcher(RestTemplate restTemplate) {
+    public CourierDispatcher(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
         this.executorService = Executors.newScheduledThreadPool(4);
     }
 
-    synchronized public void schedule(long arrivalTime, int orderId) {
-        this.executorService.schedule(Event.ofCourierArrived(this, arrivalTime, orderId), arrivalTime,
-                TimeUnit.MILLISECONDS);
+    synchronized public void schedule(long timeToDestination, int courierId) {
+        CompletableFuture.runAsync(() -> {
+            long estimatedTimeOfArrival = System.currentTimeMillis() + 1000L * timeToDestination;
+            this.executorService.schedule(
+                    CourierDispatchedTask.ofCourierArrived(this, estimatedTimeOfArrival, courierId),
+                    timeToDestination, TimeUnit.SECONDS);
+        }).join();
     }
 
-    public void dispatch(Event event) {
+    public void dispatch(CourierDispatchedTask courierDispatchedTask) {
         try {
-            HttpEntity<Event> request = new HttpEntity<>(event, HEADERS);
+            HttpEntity<CourierDispatchedTask> request = new HttpEntity<>(courierDispatchedTask, HEADERS);
             ResponseEntity<?> response = restTemplate.postForEntity(COURIER_ARRIVED_RESOURCE, request,
                     SimpleResponse.class);
             if(HttpStatus.CREATED == response.getStatusCode()) {
@@ -40,7 +45,7 @@ public class EventDispatcher {
                 log.info("event dispatch failed: " + response.getBody());
             }
         } catch (Exception e) {
-            log.error("Failed to notify courier arrival: {} error: {}", event, e.getMessage());
+            log.error("Failed to notify courier arrival: {} error: {}", courierDispatchedTask, e.getMessage());
         }
     }
 }
