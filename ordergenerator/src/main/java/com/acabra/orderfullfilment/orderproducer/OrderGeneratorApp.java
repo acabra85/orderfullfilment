@@ -16,11 +16,9 @@ import org.springframework.context.annotation.Bean;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 @SpringBootApplication
 @Slf4j
@@ -53,7 +51,10 @@ public class OrderGeneratorApp {
         } catch (IOException e) {
             log.error(e.getMessage()+ "---" + ExceptionUtils.getRootCauseMessage(e), e);
         }
-        return Collections.emptyList();
+        Random r = new Random();
+        return new ArrayList<>(){{
+            IntStream.range(0,61).forEach(id->add(new DeliveryOrderRequest(UUID.randomUUID().toString(), "n"+id, r.nextInt(6))));
+        }};
     }
 
     private String getResourceName(String arg) {
