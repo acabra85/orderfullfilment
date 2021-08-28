@@ -59,7 +59,7 @@ public class CourierFleetImpl implements CourierFleet {
         return null;
     }
 
-    private int calculateArrivalTime() {
+    int calculateArrivalTime() {
         return Math.abs(floorEta + etaGenerate.nextInt(ceilingEta));
     }
 
