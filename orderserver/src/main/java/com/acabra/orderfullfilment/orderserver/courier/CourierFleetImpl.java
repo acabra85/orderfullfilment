@@ -18,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 public class CourierFleetImpl implements CourierFleet {
 
     private final HashMap<Integer, Courier> dispatchedCouriers = new HashMap<>();
-    private final HashMap<Integer, AssignmentDetails> assignments = new HashMap<>();
     private final Deque<Courier> availableCouriers;
 
     private final int ceilingEta;
@@ -49,12 +48,11 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    synchronized public Integer dispatch(Optional<DeliveryOrder> order) {
+    synchronized public Integer dispatch(DeliveryOrder order) {
         Courier courier = retrieveCourier();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
             AssignmentDetails pending = AssignmentDetails.pending(calculateArrivalTime());
-            assignments.put(courier.id, pending);
             this.schedule(pending.eta, courier.id);
             return courier.id;
         }
@@ -66,23 +64,20 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    synchronized public void release(int courierId) throws NoSuchElementException {
-        AssignmentDetails assignmentDetails = this.assignments.get(courierId);
-        if(null == assignmentDetails) {
+    synchronized public void release(Integer courierId) throws NoSuchElementException {
+        Courier courier = this.dispatchedCouriers.get(courierId);
+        if(null == courier) {
             String error = String.format("The given id [%d] does not correspond to an assigned courier", courierId);
             throw new NoSuchElementException(error);
         }
-        Courier courier = this.dispatchedCouriers.get(courierId);
         courier.orderDelivered();
         this.dispatchedCouriers.put(courierId, null);
-        this.assignments.remove(courierId);
         this.availableCouriers.add(courier);
         log.debug("Courier {} is available ... ", courierId);
     }
 
     private void schedule(long timeToDestination, int courierId) {
         long eta = System.currentTimeMillis() + 1000L * timeToDestination;
-        CourierFleetImpl thisCourierFleet = this;
         CompletableFuture.supplyAsync(() -> {
                     CourierReadyForPickupEvent pickupEvent = new CourierReadyForPickupEvent(courierId, eta, KitchenClock.now());
                     log.info("[EVENT] Courier {} arrived for pickup at {}ms \n", pickupEvent.courierId,

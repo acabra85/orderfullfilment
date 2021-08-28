@@ -8,9 +8,8 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import java.util.LongSummaryStatistics;
@@ -25,16 +24,25 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
 
     private final LongSummaryStatistics foodWaitTimeStats = new LongSummaryStatistics();
     private final LongSummaryStatistics courierWaitTimeStats = new LongSummaryStatistics();
-    private final LinkedBlockingDeque<CourierReadyForPickupEvent> couriersAwaitingPickup = new LinkedBlockingDeque<>();
+    private final LinkedBlockingDeque<CourierReadyForPickupEvent> couriersAwaitingPickup;
     private final CourierFleet courierFleet;
 
+    @Autowired
     public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet) {
         this.courierFleet = courierFleet;
+        this.couriersAwaitingPickup = new LinkedBlockingDeque<>();
+    }
+
+    @Autowired(required = false)
+    public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet,
+                                          LinkedBlockingDeque<CourierReadyForPickupEvent> blockingQue) {
+        this.courierFleet = courierFleet;
+        this.couriersAwaitingPickup = blockingQue;
     }
 
     @Override
     public Optional<Integer> dispatchRequest(DeliveryOrder order) {
-        Integer courierId = this.courierFleet.dispatch(null == order ? Optional.empty() : Optional.of(order));
+        Integer courierId = this.courierFleet.dispatch(order);
         if(null != courierId) {
             return Optional.of(courierId);
         }
@@ -42,19 +50,35 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public void processCourierArrival(CourierReadyForPickupEvent pickupEvent) {
-        couriersAwaitingPickup.addLast(pickupEvent);
+    public boolean processCourierArrival(CourierReadyForPickupEvent pickupEvent) {
+        if(null == pickupEvent) {
+            return false;
+        }
+        try {
+            couriersAwaitingPickup.addLast(pickupEvent);
+            return true;
+        } catch (IllegalStateException ise) {
+            log.error(ise.getMessage(), ise);
+        }
+        return false;
     }
 
     @Override
-    public void processMealReady(MealReadyForPickupEvent mealReadyEvent) {
-        MealAwaitingPickupSupplier supplier = new MealAwaitingPickupSupplier(couriersAwaitingPickup, mealReadyEvent);
-        CompletableFuture.supplyAsync(supplier)
-                .thenApply(pickupCompletedEvent -> {
-                    recordMetrics(mealReadyEvent, pickupCompletedEvent);
-                    return pickupCompletedEvent.courierId;
-                })
-                .thenAcceptAsync(courierFleet::release);
+    public CompletableFuture<Void> processMealReady(MealReadyForPickupEvent mealReadyEvent) {
+        CompletableFuture<Integer> future = CompletableFuture
+                .supplyAsync(new MealAwaitingPickupSupplier(couriersAwaitingPickup, mealReadyEvent.readySince))
+                .thenApply(ev -> {
+                    recordMetrics(mealReadyEvent, ev);
+                    return ev.courierId;
+                });
+        return future.handleAsync((id, ex) -> {
+            if(id != null) {
+                courierFleet.release(id);
+            } else {
+                log.error("Error processing meal ready event: {}", ex.getMessage(), ex);
+            }
+            return null;
+        });
     }
 
     private void recordMetrics(MealReadyForPickupEvent mealReadyEvent, PickupCompletedEvent pickupCompletedEvent) {

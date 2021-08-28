@@ -31,14 +31,14 @@ public class KitchenServiceImpl implements KitchenService {
     public void prepareMeal(long mealOrderId) {
         DeliveryOrder order = internalIdToOrder.get(mealOrderId);
         if(order != null) {
-            RequestCookEvent requestCookEvent = new RequestCookEvent(mealOrderId, order.id);
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
+            RequestCookEvent requestCookEvent = new RequestCookEvent(mealOrderId, order.id);
             CompletableFuture.runAsync(requestCookEvent,
                     CompletableFuture.delayedExecutor(order.prepTime, TimeUnit.MILLISECONDS));
             return;
         }
-        String template = "Unable to find the cookReservationId id[%d] for the given order: %d";
-        throw new NoSuchElementException(String.format(template, mealOrderId, order.id));
+        String template = "Unable to find the given cookReservationId id[%d]";
+        throw new NoSuchElementException(String.format(template, mealOrderId));
     }
 
     @Override

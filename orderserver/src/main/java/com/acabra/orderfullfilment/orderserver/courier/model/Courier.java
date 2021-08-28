@@ -7,29 +7,29 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class Courier {
 
-    public final int id;
+    public final Integer id;
     public final String name;
 
     private final AtomicReference<CourierStatus> status;
 
-    private Courier(int id, String name) {
+    private Courier(Integer id, String name) {
         this.id = id;
         this.name = name;
         this.status = new AtomicReference<>(CourierStatus.AVAILABLE);
     }
 
-    private Courier(int id, String name, CourierStatus status) {
+    private Courier(Integer id, String name, CourierStatus status) {
         this.id = id;
         this.name = name;
         this.status = new AtomicReference<>(status);
     }
 
-    public static Courier ofDispatched(int id, String name) {
+    public static Courier ofDispatched(Integer id, String name) {
         return new Courier(id, name, CourierStatus.DISPATCHED);
     }
 
     @JsonCreator
-    public static Courier ofAvailable(@JsonProperty("id") int id, @JsonProperty("name") String name) {
+    public static Courier ofAvailable(@JsonProperty("id") Integer id, @JsonProperty("name") String name) {
         return new Courier(id, name);
     }
 

@@ -5,10 +5,10 @@ import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 public interface KitchenService {
 
     /**
-     * Assigns the current order to an internal cook id, this operation is reversible by calling @cancelCookReservation
+     * Assigns the current order to an internal cookId, this operation is reversible by calling @cancelCookReservation
      * This allows the caller to ensure a delivery driver is available before the kitchen starts meal preparation
-     * @param order
-     * @return
+     * @param order the delivery order
+     * @return id of the reservation
      */
     long orderCookReservationId(DeliveryOrder order);
 

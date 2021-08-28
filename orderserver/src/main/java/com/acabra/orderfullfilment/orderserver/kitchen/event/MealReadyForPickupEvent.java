@@ -23,4 +23,16 @@ public class MealReadyForPickupEvent {
     public static MealReadyForPickupEvent of(long mealOrderId, String deliveryOrderId, long readySince) {
         return new MealReadyForPickupEvent(mealOrderId, deliveryOrderId, readySince);
     }
+
+    public long getMealOrderId() {
+        return mealOrderId;
+    }
+
+    public long getReadySince() {
+        return readySince;
+    }
+
+    public String getDeliveryOrderId() {
+        return deliveryOrderId;
+    }
 }
