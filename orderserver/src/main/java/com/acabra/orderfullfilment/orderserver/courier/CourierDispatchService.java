@@ -6,6 +6,7 @@ import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public interface CourierDispatchService {
 
@@ -14,13 +15,6 @@ public interface CourierDispatchService {
      * @return id of the courier
      */
     Optional<Integer> dispatchRequest(DeliveryOrder order);
-
-    /**
-     * According to the strategy defined, allows a courier to pickup an order if is ready or to wait in line
-     * @param pickupEvent the details of the courier
-     * @return true if the event is accepted for processing
-     */
-    boolean processCourierArrival(CourierReadyForPickupEvent pickupEvent);
 
     /**
      * According to the strategy defined allows the order to be picked up by an awaiting courier or else to await

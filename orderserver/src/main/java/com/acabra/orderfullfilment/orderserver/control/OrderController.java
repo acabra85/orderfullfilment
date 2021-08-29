@@ -1,5 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.control;
 
+import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderProcessorImpl;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponse;
@@ -24,9 +25,9 @@ import java.util.Optional;
 @Slf4j
 public class OrderController {
 
-    private final OrderProcessorImpl orderProcessor;
+    private final OrderProcessor orderProcessor;
 
-    public OrderController(OrderProcessorImpl orderService) {
+    public OrderController(OrderProcessor orderService) {
         this.orderProcessor = orderService;
     }
 

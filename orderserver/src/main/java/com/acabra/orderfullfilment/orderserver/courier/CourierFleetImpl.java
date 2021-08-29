@@ -2,28 +2,34 @@ package com.acabra.orderfullfilment.orderserver.courier;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
 import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
-import com.acabra.orderfullfilment.orderserver.courier.model.AssignmentDetails;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
+import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
 public class CourierFleetImpl implements CourierFleet {
 
-    private final HashMap<Integer, Courier> dispatchedCouriers = new HashMap<>();
+    private static final Collector<Courier, ?, ArrayDeque<Courier>> DEQUE_COLLECTOR = Collectors.toCollection(ArrayDeque::new);
+
+    private final Map<Integer, Courier> dispatchedCouriers;
     private final Deque<Courier> availableCouriers;
 
-    private final int ceilingEta;
-    private final Integer floorEta;
-    private final static Random etaGenerate = new Random();
-    private final CourierDispatchService dispatchService;
+    private final AtomicInteger totalCouriers;
+    private final AtomicReference<BlockingDeque<CourierReadyForPickupEvent>> courierAvailableNotificationDeque;
+    private final EtaEstimator etaEstimator;
 
     private Courier findFirstAvailable() {
         if(availableCouriers.isEmpty()) throw new NoSuchElementException("No Available couriers");
@@ -39,12 +45,22 @@ public class CourierFleetImpl implements CourierFleet {
         return courier;
     }
 
-    public CourierFleetImpl(List<Courier> availableCouriers, CourierConfig config,
-                              CourierDispatchService dispatchService) {
-        this.availableCouriers = new ArrayDeque<>(availableCouriers);
-        this.ceilingEta = config.getMaxEta() - config.getMinEta() + 1;
-        this.floorEta = config.getMinEta();
-        this.dispatchService = dispatchService;
+    public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator) {
+        this.availableCouriers = couriers.stream().filter(Courier::isAvailable).collect(DEQUE_COLLECTOR);
+        this.dispatchedCouriers = buildDispatchedMap(couriers);
+        this.totalCouriers = new AtomicInteger(couriers.size());
+        this.courierAvailableNotificationDeque = new AtomicReference<>();
+        this.etaEstimator = etaEstimator;
+    }
+
+    private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
+        return this.availableCouriers.size() != couriers.size() ?
+                couriers.stream()
+                        .filter(c -> !c.isAvailable())
+                        .map(c-> Map.entry(c.id, c))
+                        .collect(
+                            Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                : new HashMap<>();
     }
 
     @Override
@@ -52,15 +68,11 @@ public class CourierFleetImpl implements CourierFleet {
         Courier courier = retrieveCourier();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
-            AssignmentDetails pending = AssignmentDetails.pending(calculateArrivalTime());
-            this.schedule(pending.eta, courier.id);
+            int eta = etaEstimator.estimateCourierTravelTime();
+            this.schedule(eta, courier.id);
             return courier.id;
         }
         return null;
-    }
-
-    int calculateArrivalTime() {
-        return Math.abs(floorEta + etaGenerate.nextInt(ceilingEta));
     }
 
     @Override
@@ -77,13 +89,34 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     private void schedule(long timeToDestination, int courierId) {
-        long eta = System.currentTimeMillis() + 1000L * timeToDestination;
+        long eta = KitchenClock.now() + 1000L * timeToDestination;
         CompletableFuture.supplyAsync(() -> {
                     CourierReadyForPickupEvent pickupEvent = new CourierReadyForPickupEvent(courierId, eta, KitchenClock.now());
                     log.info("[EVENT] Courier {} arrived for pickup at {}ms \n", pickupEvent.courierId,
                             KitchenClock.formatted(pickupEvent.arrivalTime));
                     return pickupEvent;
                 }, CompletableFuture.delayedExecutor(timeToDestination, TimeUnit.SECONDS)
-        ).thenAccept(dispatchService::processCourierArrival);
+        ).whenCompleteAsync( (evt, ex) -> {
+            try {
+                courierAvailableNotificationDeque.get().putLast(evt);
+            } catch (InterruptedException e) {
+                log.error("Failed to publish the notification");
+            }
+        });
+    }
+
+    @Override
+    public int fleetSize() {
+        return totalCouriers.get();
+    }
+
+    @Override
+    public int availableCouriers() {
+        return availableCouriers.size();
+    }
+
+    @Override
+    public void registerNotificationQueue(BlockingDeque<CourierReadyForPickupEvent> deque) {
+        courierAvailableNotificationDeque.updateAndGet(oldValue -> deque);
     }
 }

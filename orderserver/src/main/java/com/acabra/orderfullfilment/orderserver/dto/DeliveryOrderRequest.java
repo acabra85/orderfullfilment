@@ -18,13 +18,4 @@ public class DeliveryOrderRequest {
         this.name = name;
         this.id = id;
     }
-
-    @Override
-    public String toString() {
-        return "DeliveryOrderRequest{" +
-                "prepTime=" + prepTime +
-                ", name='" + name + '\'' +
-                ", id='" + id + '\'' +
-                '}';
-    }
 }

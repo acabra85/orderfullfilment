@@ -34,14 +34,17 @@ public class Courier {
     }
 
     public void dispatch() {
-        this.status.set(CourierStatus.DISPATCHED);
+        if(CourierStatus.DISPATCHED == this.status.get()) {
+            throw new IllegalStateException("Courier is already dispatched");
+        }
+        this.status.updateAndGet(available -> CourierStatus.DISPATCHED);
     }
 
     public void orderDelivered() {
         if(CourierStatus.AVAILABLE == this.status.get()) {
             throw new IllegalStateException("Courier is already available");
         }
-        this.status.set(CourierStatus.AVAILABLE);
+        this.status.updateAndGet(oldStatus -> CourierStatus.AVAILABLE);
     }
 
     public boolean isAvailable() {
@@ -52,12 +55,4 @@ public class Courier {
         return this.status.get();
     }
 
-    @Override
-    public String toString() {
-        return "Courier{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", status=" + status.get() +
-                '}';
-    }
 }

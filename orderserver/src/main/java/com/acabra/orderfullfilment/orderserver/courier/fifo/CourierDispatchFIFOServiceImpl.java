@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.LongSummaryStatistics;
 import java.util.Optional;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -24,20 +25,22 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
 
     private final LongSummaryStatistics foodWaitTimeStats = new LongSummaryStatistics();
     private final LongSummaryStatistics courierWaitTimeStats = new LongSummaryStatistics();
-    private final LinkedBlockingDeque<CourierReadyForPickupEvent> couriersAwaitingPickup;
+    private final BlockingDeque<CourierReadyForPickupEvent> couriersAwaitingPickup;
     private final CourierFleet courierFleet;
 
     @Autowired
     public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet) {
+        final BlockingDeque<CourierReadyForPickupEvent> deque = new LinkedBlockingDeque<>();
         this.courierFleet = courierFleet;
-        this.couriersAwaitingPickup = new LinkedBlockingDeque<>();
+        this.couriersAwaitingPickup = deque;
+        this.courierFleet.registerNotificationQueue(deque);
     }
 
-    @Autowired(required = false)
     public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet,
-                                          LinkedBlockingDeque<CourierReadyForPickupEvent> blockingQue) {
+                                          BlockingDeque<CourierReadyForPickupEvent> blockingDeque) {
         this.courierFleet = courierFleet;
-        this.couriersAwaitingPickup = blockingQue;
+        this.couriersAwaitingPickup = blockingDeque;
+        this.courierFleet.registerNotificationQueue(blockingDeque);
     }
 
     @Override
@@ -50,32 +53,21 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public boolean processCourierArrival(CourierReadyForPickupEvent pickupEvent) {
-        if(null == pickupEvent) {
-            return false;
-        }
-        try {
-            couriersAwaitingPickup.addLast(pickupEvent);
-            return true;
-        } catch (IllegalStateException ise) {
-            log.error(ise.getMessage(), ise);
-        }
-        return false;
-    }
-
-    @Override
     public CompletableFuture<Void> processMealReady(MealReadyForPickupEvent mealReadyEvent) {
         CompletableFuture<Integer> future = CompletableFuture
                 .supplyAsync(new MealAwaitingPickupSupplier(couriersAwaitingPickup, mealReadyEvent.readySince))
-                .thenApply(ev -> {
-                    recordMetrics(mealReadyEvent, ev);
-                    return ev.courierId;
+                .thenApplyAsync(ev -> {
+                    if(null != ev) {
+                        recordMetrics(mealReadyEvent, ev);
+                        return ev.courierId;
+                    }
+                    return null;
                 });
-        return future.handleAsync((id, ex) -> {
+        return future.thenApplyAsync(id -> {
             if(id != null) {
                 courierFleet.release(id);
             } else {
-                log.error("Error processing meal ready event: {}", ex.getMessage(), ex);
+                log.error("Error processing meal ready event: courierId is null");
             }
             return null;
         });

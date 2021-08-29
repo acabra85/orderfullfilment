@@ -12,6 +12,7 @@ import org.mockito.Mockito;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 
 class CourierDispatchFIFOServiceImplTest {
@@ -53,68 +54,36 @@ class CourierDispatchFIFOServiceImplTest {
     }
 
     @Test
-    void processCourierArrivalTest() {
-
-        //when
-        boolean expectedTrue = underTest.processCourierArrival(validCourierReadyEvent);
-        boolean expectedFalse = underTest.processCourierArrival(null);
-
-        //then
-        Assertions.assertThat(expectedTrue).isTrue();
-        Assertions.assertThat(expectedFalse).isFalse();
-    }
-
-    @Test
-    void shouldReturnFalse_uponException() {
+    void mustComplete_whenCouriersAvailableForPickup() throws InterruptedException, ExecutionException {
         //given
         LinkedBlockingDeque<CourierReadyForPickupEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
         underTest = new CourierDispatchFIFOServiceImpl(fleetMock, mockDeque);
-        Mockito.doThrow(IllegalStateException.class).when(mockDeque).addLast(validCourierReadyEvent);
-        //when
-        boolean actual = underTest.processCourierArrival(validCourierReadyEvent);
-
-        //then
-        Mockito.verify(mockDeque).addLast(validCourierReadyEvent);
-        Assertions.assertThat(actual).isFalse();
-    }
-
-    @Test
-    void mustComplete_whenCouriersAvailableForPickup() throws InterruptedException {
-        //given
-        LinkedBlockingDeque<CourierReadyForPickupEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
-        underTest = new CourierDispatchFIFOServiceImpl(fleetMock, mockDeque);
-        Mockito.when(mockDeque.poll()).thenReturn(validCourierReadyEvent);
+        Mockito.when(mockDeque.take()).thenReturn(validCourierReadyEvent);
         Mockito.doNothing().when(fleetMock).release(validCourierReadyEvent.courierId);
 
         CompletableFuture<Void> future = underTest.processMealReady(validMealEvent);
-        CountDownLatch cl = new CountDownLatch(1);
-        future.thenRun(cl::countDown);
-
         //when
-        cl.await();
+        future.get();
 
         //then
-        Mockito.verify(mockDeque).poll();
+        Mockito.verify(mockDeque).take();
         Mockito.verify(fleetMock).release(validCourierReadyEvent.courierId);
         Assertions.assertThat(future.isDone()).isTrue();
     }
 
     @Test
-    void mustComplete_whenExceptionRaised() throws InterruptedException {
+    void mustComplete_whenExceptionRaised() throws InterruptedException, ExecutionException {
         //given
         LinkedBlockingDeque<CourierReadyForPickupEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(RuntimeException.class).when(mockDeque).poll();
+        Mockito.doThrow(InterruptedException.class).when(mockDeque).take();
         underTest = new CourierDispatchFIFOServiceImpl(fleetMock, mockDeque);
 
-        CountDownLatch cl = new CountDownLatch(1);
-        CompletableFuture<Void> future = underTest.processMealReady(validMealEvent)
-                .thenRun(cl::countDown);
-
         //when
-        cl.await();
+        CompletableFuture<Void> future = underTest.processMealReady(validMealEvent);
+        future.get();
 
         //then
-        Mockito.verify(mockDeque).poll();
+        Mockito.verify(mockDeque).take();
         Assertions.assertThat(future.isDone()).isTrue();
     }
 }

@@ -1,6 +1,5 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
@@ -9,18 +8,19 @@ import org.springframework.stereotype.Service;
 import java.util.NoSuchElementException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @Slf4j
 public class KitchenServiceImpl implements KitchenService {
     final AtomicLong cookingOrderId;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
-    private final CourierDispatchService courierDispatchService;
+    private final AtomicReference<BlockingDeque<MealReadyForPickupEvent>> mealReadyNotificationDeque;
 
-    public KitchenServiceImpl(CourierDispatchService courierDispatchService) {
-        cookingOrderId = new AtomicLong();
-        internalIdToOrder = new ConcurrentHashMap<>();
-        this.courierDispatchService = courierDispatchService;
+    public KitchenServiceImpl() {
+        this.cookingOrderId = new AtomicLong();
+        this.internalIdToOrder = new ConcurrentHashMap<>();
+        this.mealReadyNotificationDeque = new AtomicReference<>();
     }
 
     private long nextOrderId() {
@@ -70,7 +70,20 @@ public class KitchenServiceImpl implements KitchenService {
                     KitchenClock.now());
             log.info("[EVENT] Order prepared: id[{}] Ready for pickup at: {}", deliveryOrderId,
                     KitchenClock.formatted(readyForPickup.readySince));
-            KitchenServiceImpl.this.courierDispatchService.processMealReady(readyForPickup);
+            attemptReportMealReadyForPickup(readyForPickup);
         }
+    }
+
+    private void attemptReportMealReadyForPickup(MealReadyForPickupEvent readyForPickup) {
+        try {
+            this.mealReadyNotificationDeque.get().put(readyForPickup);
+        } catch (InterruptedException e) {
+            log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void registerMealNotificationReadyQueue(BlockingDeque<MealReadyForPickupEvent> deque) {
+        this.mealReadyNotificationDeque.updateAndGet(oldValue -> deque);
     }
 }

@@ -39,16 +39,6 @@ public class DeliveryOrder {
     }
 
     @Override
-    public String toString() {
-        return "DeliveryOrder{" +
-                "id='" + id + '\'' +
-                ", name='" + name + '\'' +
-                ", prepTime=" + prepTime +
-                ", receivedTime=" + receivedTime +
-                '}';
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;

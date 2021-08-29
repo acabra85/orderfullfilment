@@ -11,14 +11,6 @@ public class MealReadyForPickupEvent {
         this.deliveryOrderId = deliveryOrderId;
     }
 
-    @Override
-    public String toString() {
-        return "MealReadyForPickupEvent{" +
-                "mealOrderId=" + mealOrderId +
-                "deliveryOrderId=" + deliveryOrderId +
-                ", readySince=" + readySince +
-                '}';
-    }
 
     public static MealReadyForPickupEvent of(long mealOrderId, String deliveryOrderId, long readySince) {
         return new MealReadyForPickupEvent(mealOrderId, deliveryOrderId, readySince);

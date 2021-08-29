@@ -24,12 +24,4 @@ public class DeliveryOrderRequest {
         return new DeliveryOrderRequest(SIG_PILL_ID, "", -1);
     }
 
-    @Override
-    public String toString() {
-        return "DeliveryOrderRequest{" +
-                "prepTime=" + prepTime +
-                ", name='" + name + '\'' +
-                ", id='" + id + '\'' +
-                '}';
-    }
 }

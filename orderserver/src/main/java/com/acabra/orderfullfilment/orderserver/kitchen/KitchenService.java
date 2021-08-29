@@ -1,6 +1,10 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
+import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
+
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public interface KitchenService {
 
@@ -23,4 +27,10 @@ public interface KitchenService {
      * @param cookReservationId the reservation id provided by calling @orderCookReservationId
      */
     void prepareMeal(long cookReservationId);
+
+    /**
+     *
+     * @param queue
+     */
+    void registerMealNotificationReadyQueue(BlockingDeque<MealReadyForPickupEvent> queue);
 }
