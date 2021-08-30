@@ -32,7 +32,7 @@ public class MealAwaitingPickupSupplier implements Supplier<OrderPickedUpEvent> 
         } catch (Exception e) {
             log.error("Error exception caught: {}", e.getMessage(), e);
         }
-        throw new RuntimeException("Unable to complete the OrderPickupEvent");
+        return null;
     }
 
 }

@@ -48,7 +48,8 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
     public Optional<Integer> dispatchRequest(DeliveryOrder order) {
         Integer courierId = this.courierFleet.dispatch(order).courierId;
         if(null != courierId) {
-            log.info("[EVENT] Courier with id[{}] dispatched", courierId);
+            log.info("[EVENT] Courier dispatched: id[{}], {} available", courierId,
+                this.courierFleet.availableCouriers());
             return Optional.of(courierId);
         }
         return Optional.empty();
@@ -60,6 +61,8 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
                 .supplyAsync(new MealAwaitingPickupSupplier(couriersAwaitingPickup, mealReadyEvent.readySince))
                 .thenApplyAsync(ev -> {
                     if(null != ev) {
+                        log.info("[EVENT] Order {} picked by Courier {} at {}",
+                                mealReadyEvent.deliveryOrderId, ev.courierId, KitchenClock.formatted(ev.at));
                         recordMetrics(mealReadyEvent, ev);
                         return ev.courierId;
                     }
@@ -78,15 +81,10 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
     private void recordMetrics(OrderPreparedEvent mealReadyEvent, OrderPickedUpEvent orderPickedUpEvent) {
         foodWaitTimeStats.accept(orderPickedUpEvent.foodWaitTime);
         courierWaitTimeStats.accept(orderPickedUpEvent.courierWaitTime);
-        log.info("[EVENT] Order {} picked by Courier {} at {}",
-                mealReadyEvent.deliveryOrderId,
-                orderPickedUpEvent.courierId,
-                KitchenClock.formatted(orderPickedUpEvent.at));
-        log.info("[METRICS] Food wait time: {}ms id[{}].",
+        log.info("[METRICS] Food wait time: {}ms id[{}], Courier wait time {}ms",
                 orderPickedUpEvent.foodWaitTime,
-                mealReadyEvent.deliveryOrderId);
-        log.info("[METRICS] Courier wait time: {}ms for order {}\n",
-                orderPickedUpEvent.courierWaitTime,
-                mealReadyEvent.deliveryOrderId);
+                mealReadyEvent.deliveryOrderId,
+                orderPickedUpEvent.courierWaitTime
+                );
     }
 }
