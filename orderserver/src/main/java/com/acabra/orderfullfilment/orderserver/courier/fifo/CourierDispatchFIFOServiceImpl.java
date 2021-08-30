@@ -2,10 +2,11 @@ package com.acabra.orderfullfilment.orderserver.courier.fifo;
 
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.courier.CourierFleet;
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
-import com.acabra.orderfullfilment.orderserver.courier.event.PickupCompletedEvent;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPickedUpEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
-import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,35 +26,36 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
 
     private final LongSummaryStatistics foodWaitTimeStats = new LongSummaryStatistics();
     private final LongSummaryStatistics courierWaitTimeStats = new LongSummaryStatistics();
-    private final BlockingDeque<CourierReadyForPickupEvent> couriersAwaitingPickup;
+    private final BlockingDeque<OutputEvent> couriersAwaitingPickup;
     private final CourierFleet courierFleet;
 
     @Autowired
     public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet) {
-        final BlockingDeque<CourierReadyForPickupEvent> deque = new LinkedBlockingDeque<>();
+        final BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
         this.courierFleet = courierFleet;
         this.couriersAwaitingPickup = deque;
-        this.courierFleet.registerNotificationQueue(deque);
+        this.courierFleet.registerNotificationDeque(deque);
     }
 
     public CourierDispatchFIFOServiceImpl(CourierFleet courierFleet,
-                                          BlockingDeque<CourierReadyForPickupEvent> blockingDeque) {
+                                          BlockingDeque<OutputEvent> blockingDeque) {
         this.courierFleet = courierFleet;
         this.couriersAwaitingPickup = blockingDeque;
-        this.courierFleet.registerNotificationQueue(blockingDeque);
+        this.courierFleet.registerNotificationDeque(blockingDeque);
     }
 
     @Override
     public Optional<Integer> dispatchRequest(DeliveryOrder order) {
-        Integer courierId = this.courierFleet.dispatch(order);
+        Integer courierId = this.courierFleet.dispatch(order).courierId;
         if(null != courierId) {
+            log.info("[EVENT] Courier with id[{}] dispatched", courierId);
             return Optional.of(courierId);
         }
         return Optional.empty();
     }
 
     @Override
-    public CompletableFuture<Void> processMealReady(MealReadyForPickupEvent mealReadyEvent) {
+    public CompletableFuture<Void> processMealReady(OrderPreparedEvent mealReadyEvent) {
         CompletableFuture<Integer> future = CompletableFuture
                 .supplyAsync(new MealAwaitingPickupSupplier(couriersAwaitingPickup, mealReadyEvent.readySince))
                 .thenApplyAsync(ev -> {
@@ -73,19 +75,18 @@ public class CourierDispatchFIFOServiceImpl implements CourierDispatchService {
         });
     }
 
-    private void recordMetrics(MealReadyForPickupEvent mealReadyEvent, PickupCompletedEvent pickupCompletedEvent) {
-        foodWaitTimeStats.accept(pickupCompletedEvent.foodWaitTime);
-        courierWaitTimeStats.accept(pickupCompletedEvent.courierWaitTime);
-        courierWaitTimeStats.accept(pickupCompletedEvent.courierWaitTime);
+    private void recordMetrics(OrderPreparedEvent mealReadyEvent, OrderPickedUpEvent orderPickedUpEvent) {
+        foodWaitTimeStats.accept(orderPickedUpEvent.foodWaitTime);
+        courierWaitTimeStats.accept(orderPickedUpEvent.courierWaitTime);
         log.info("[EVENT] Order {} picked by Courier {} at {}",
                 mealReadyEvent.deliveryOrderId,
-                pickupCompletedEvent.courierId,
-                KitchenClock.formatted(pickupCompletedEvent.at));
+                orderPickedUpEvent.courierId,
+                KitchenClock.formatted(orderPickedUpEvent.at));
         log.info("[METRICS] Food wait time: {}ms id[{}].",
-                pickupCompletedEvent.foodWaitTime,
+                orderPickedUpEvent.foodWaitTime,
                 mealReadyEvent.deliveryOrderId);
         log.info("[METRICS] Courier wait time: {}ms for order {}\n",
-                pickupCompletedEvent.courierWaitTime,
+                orderPickedUpEvent.courierWaitTime,
                 mealReadyEvent.deliveryOrderId);
     }
 }

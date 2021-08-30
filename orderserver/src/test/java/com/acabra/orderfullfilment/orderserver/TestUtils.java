@@ -2,7 +2,6 @@ package com.acabra.orderfullfilment.orderserver;
 
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
 import com.acabra.orderfullfilment.orderserver.model.Dishes;
-import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +20,6 @@ public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
-    @Test
     public void generateDayOrders() {
         logger.info("Generating random daily orders ....");
         Stream.Builder<DeliveryOrderRequest> orderStreamBuilder = Stream.builder();

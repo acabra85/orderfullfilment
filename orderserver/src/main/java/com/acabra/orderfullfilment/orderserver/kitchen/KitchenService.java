@@ -1,10 +1,11 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.CompletableFuture;
 
 public interface KitchenService {
 
@@ -19,18 +20,26 @@ public interface KitchenService {
     /**
      * Cancels the reservation order to cook a meal
      * @param mealReservationId id of the reservation
+     * @return true if reservation existed or false otherwise
      */
-    void cancelCookReservation(long mealReservationId);
+    boolean cancelCookReservation(long mealReservationId);
 
     /**
      * Instructs the kitchen to start meal preparation as a courier has been reserved to handle the order
      * @param cookReservationId the reservation id provided by calling @orderCookReservationId
+     * @return a future handle to determine if the notification meal ready was published successfully.
      */
-    void prepareMeal(long cookReservationId);
+    CompletableFuture<Boolean> prepareMeal(long cookReservationId);
 
     /**
-     *
-     * @param queue
+     * Register a queue for notification of meal ready for pickup
+     * @param queue a blocking queue
      */
-    void registerMealNotificationReadyQueue(BlockingDeque<MealReadyForPickupEvent> queue);
+    void registerMealNotificationReadyQueue(BlockingDeque<OutputEvent> queue);
+
+    /**
+     * Reports whether the kitchen is preparing meals or not
+     * @return true if no meals are being prepared.
+     */
+    boolean isKitchenIdle();
 }

@@ -14,10 +14,6 @@ public final class KitchenClock {
         return System.currentTimeMillis();
     }
 
-    public static String nowFormatted() {
-        return formatted(now());
-    }
-
     public static String formatted(long epoch) {
         return LocalDateTime
                 .ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC)

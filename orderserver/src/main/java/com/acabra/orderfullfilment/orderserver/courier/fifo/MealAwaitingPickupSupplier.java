@@ -1,7 +1,8 @@
 package com.acabra.orderfullfilment.orderserver.courier.fifo;
 
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
-import com.acabra.orderfullfilment.orderserver.courier.event.PickupCompletedEvent;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPickedUpEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
 
@@ -9,28 +10,29 @@ import java.util.concurrent.BlockingDeque;
 import java.util.function.Supplier;
 
 @Slf4j
-public class MealAwaitingPickupSupplier implements Supplier<PickupCompletedEvent> {
+public class MealAwaitingPickupSupplier implements Supplier<OrderPickedUpEvent> {
 
-    private final BlockingDeque<CourierReadyForPickupEvent> queue;
+    private final BlockingDeque<OutputEvent> queue;
     private final long readySince;
 
-    public MealAwaitingPickupSupplier(BlockingDeque<CourierReadyForPickupEvent> queue, long readySince) {
+    public MealAwaitingPickupSupplier(BlockingDeque<OutputEvent> queue, long readySince) {
         this.queue = queue;
         this.readySince = readySince;
     }
 
     @Override
-    public PickupCompletedEvent get() {
-        final CourierReadyForPickupEvent courier;
+    public OrderPickedUpEvent get() {
         try {
-            courier = queue.take();
+            CourierArrivedEvent courier = (CourierArrivedEvent) queue.take();
             long now = KitchenClock.now();
-            PickupCompletedEvent pickupCompletedEvent = new PickupCompletedEvent(now, now - courier.arrivalTime, now - readySince, courier.courierId);
-            return pickupCompletedEvent;
+            OrderPickedUpEvent ev = new OrderPickedUpEvent(now, now - courier.createdAt, now - readySince, courier.courierId);
+            return ev;
         } catch (InterruptedException e) {
             log.error("Failed to match a courier to deliver the order: {}", e.getMessage(), e);
-            return null;
+        } catch (Exception e) {
+            log.error("Error exception caught: {}", e.getMessage(), e);
         }
+        throw new RuntimeException("Unable to complete the OrderPickupEvent");
     }
 
 }

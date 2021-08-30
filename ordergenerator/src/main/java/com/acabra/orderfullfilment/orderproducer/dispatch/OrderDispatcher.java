@@ -4,6 +4,7 @@ import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -28,11 +29,13 @@ public class OrderDispatcher {
     }
 
     public void dispatch(final List<DeliveryOrderRequest> orders) {
+        Iterator<DeliveryOrderRequest> iterator = orders.iterator();//List.of(orders.get(0)).iterator();
         scheduledExecutorService.scheduleAtFixedRate(
-                new PostDeliveryOrderTask(this, orders.iterator()),
+                new PostDeliveryOrderTask(this, iterator),
                 500L, //delay
                 1000L, TimeUnit.MILLISECONDS);
     }
+
 
     public OrderDispatcherStatus totalOrders() {
         return new OrderDispatcherStatus(orderSuccessCounter.sum(), orderFailures.sum());

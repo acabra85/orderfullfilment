@@ -1,8 +1,9 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
+import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
@@ -28,7 +29,7 @@ public class CourierFleetImpl implements CourierFleet {
     private final Deque<Courier> availableCouriers;
 
     private final AtomicInteger totalCouriers;
-    private final AtomicReference<BlockingDeque<CourierReadyForPickupEvent>> courierAvailableNotificationDeque;
+    private final AtomicReference<BlockingDeque<OutputEvent>> courierAvailableNotificationDeque;
     private final EtaEstimator etaEstimator;
 
     private Courier findFirstAvailable() {
@@ -64,15 +65,14 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    synchronized public Integer dispatch(DeliveryOrder order) {
+    synchronized public DispatchResult dispatch(DeliveryOrder order) {
         Courier courier = retrieveCourier();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
             int eta = etaEstimator.estimateCourierTravelTime();
-            this.schedule(eta, courier.id);
-            return courier.id;
+            return DispatchResult.of(courier.id, this.schedule(eta, courier.id));
         }
-        return null;
+        return DispatchResult.notDispatched();
     }
 
     @Override
@@ -88,21 +88,23 @@ public class CourierFleetImpl implements CourierFleet {
         log.debug("Courier {} is available ... ", courierId);
     }
 
-    private void schedule(long timeToDestination, int courierId) {
+    private CompletableFuture<Boolean> schedule(long timeToDestination, int courierId) {
         long eta = KitchenClock.now() + 1000L * timeToDestination;
-        CompletableFuture.supplyAsync(() -> {
-                    CourierReadyForPickupEvent pickupEvent = new CourierReadyForPickupEvent(courierId, eta, KitchenClock.now());
-                    log.info("[EVENT] Courier {} arrived for pickup at {}ms \n", pickupEvent.courierId,
-                            KitchenClock.formatted(pickupEvent.arrivalTime));
-                    return pickupEvent;
+        return CompletableFuture.supplyAsync(() -> {
+                    CourierArrivedEvent pickupEvent = CourierArrivedEvent.of(courierId, eta, KitchenClock.now());
+                    log.info("[EVENT] Courier {} arrived for pickup at {}ms", pickupEvent.courierId,
+                            KitchenClock.formatted(pickupEvent.createdAt));
+                    try {
+                        if(courierAvailableNotificationDeque.get() != null) {
+                            courierAvailableNotificationDeque.get().put(pickupEvent);
+                            return true;
+                        }
+                    } catch (InterruptedException e) {
+                        log.error("Failed to publish the notification");
+                    }
+                    return false;
                 }, CompletableFuture.delayedExecutor(timeToDestination, TimeUnit.SECONDS)
-        ).whenCompleteAsync( (evt, ex) -> {
-            try {
-                courierAvailableNotificationDeque.get().putLast(evt);
-            } catch (InterruptedException e) {
-                log.error("Failed to publish the notification");
-            }
-        });
+        );
     }
 
     @Override
@@ -116,7 +118,7 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public void registerNotificationQueue(BlockingDeque<CourierReadyForPickupEvent> deque) {
+    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
         courierAvailableNotificationDeque.updateAndGet(oldValue -> deque);
     }
 }

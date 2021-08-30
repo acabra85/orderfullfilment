@@ -1,11 +1,12 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
+import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
 
 public interface CourierFleet {
 
@@ -13,9 +14,9 @@ public interface CourierFleet {
      *
      * Dispatches a courier to the kitchen for order pickup, it does
      * @param order an optional order object representing an order that started the
-     * @return id of the courier dispatched or null if no drivers are available
+     * @return A dispatch result object or null if no couriers available for dispatch.
      */
-    Integer dispatch(DeliveryOrder order);
+    DispatchResult dispatch(DeliveryOrder order);
 
     /**
      * Releases a courier from the assignment, to get the status back to Available
@@ -39,5 +40,5 @@ public interface CourierFleet {
     /**
      * Registration of the notification queue to be used to publish the Ready for Pickup event
      */
-    void registerNotificationQueue(BlockingDeque<CourierReadyForPickupEvent> deque);
+    void registerNotificationDeque(BlockingDeque<OutputEvent> deque);
 }

@@ -2,8 +2,10 @@ package com.acabra.orderfullfilment.orderserver.courier.fifo;
 
 import com.acabra.orderfullfilment.orderserver.courier.CourierFleet;
 import com.acabra.orderfullfilment.orderserver.courier.CourierFleetImpl;
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
-import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
+import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,7 +13,6 @@ import org.mockito.Mockito;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -19,8 +20,8 @@ class CourierDispatchFIFOServiceImplTest {
 
     private CourierDispatchFIFOServiceImpl underTest;
     private final CourierFleet fleetMock = Mockito.mock(CourierFleetImpl.class);
-    private final CourierReadyForPickupEvent validCourierReadyEvent = new CourierReadyForPickupEvent(1, 1, 1);
-    private final MealReadyForPickupEvent validMealEvent = MealReadyForPickupEvent.of(3213, "dasdsa", 3123123);
+    private final CourierArrivedEvent validCourierReadyEvent = CourierArrivedEvent.of(1, 1, 1);
+    private final OrderPreparedEvent validMealEvent = OrderPreparedEvent.of(3213, "dasdsa", 3123123);
 
     @BeforeEach
     public void setup() {
@@ -30,7 +31,7 @@ class CourierDispatchFIFOServiceImplTest {
     @Test
     void mustReturnEmptyNoCouriers() {
         //given
-        Mockito.when(fleetMock.dispatch(null)).thenReturn(null);
+        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.notDispatched());
 
         //when
         Optional actual = underTest.dispatchRequest(null);
@@ -43,20 +44,21 @@ class CourierDispatchFIFOServiceImplTest {
     @Test
     void mustReturnCourierIdAvailableCourier() {
         //given
-        Mockito.when(fleetMock.dispatch(null)).thenReturn(5);
+        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.ofCompleted(5));
 
         //when
-        Optional actual = underTest.dispatchRequest(null);
+        Optional<Integer> actual = underTest.dispatchRequest(null);
 
         //then
         Mockito.verify(fleetMock).dispatch(null);
+        Assertions.assertThat(actual.isPresent()).isTrue();
         Assertions.assertThat(actual.get()).isEqualTo(5);
     }
 
     @Test
     void mustComplete_whenCouriersAvailableForPickup() throws InterruptedException, ExecutionException {
         //given
-        LinkedBlockingDeque<CourierReadyForPickupEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
+        LinkedBlockingDeque<OutputEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
         underTest = new CourierDispatchFIFOServiceImpl(fleetMock, mockDeque);
         Mockito.when(mockDeque.take()).thenReturn(validCourierReadyEvent);
         Mockito.doNothing().when(fleetMock).release(validCourierReadyEvent.courierId);
@@ -74,7 +76,7 @@ class CourierDispatchFIFOServiceImplTest {
     @Test
     void mustComplete_whenExceptionRaised() throws InterruptedException, ExecutionException {
         //given
-        LinkedBlockingDeque<CourierReadyForPickupEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
+        LinkedBlockingDeque<OutputEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
         Mockito.doThrow(InterruptedException.class).when(mockDeque).take();
         underTest = new CourierDispatchFIFOServiceImpl(fleetMock, mockDeque);
 

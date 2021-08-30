@@ -2,9 +2,11 @@ package com.acabra.orderfullfilment.orderserver.courier.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 public class Courier {
 
     public final Integer id;
@@ -41,10 +43,12 @@ public class Courier {
     }
 
     public void orderDelivered() {
+
         if(CourierStatus.AVAILABLE == this.status.get()) {
             throw new IllegalStateException("Courier is already available");
         }
         this.status.updateAndGet(oldStatus -> CourierStatus.AVAILABLE);
+        log.info("Courier {} is now available", id);
     }
 
     public boolean isAvailable() {

@@ -1,26 +1,32 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.NoSuchElementException;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.LongAdder;
 
 @Service
 @Slf4j
 public class KitchenServiceImpl implements KitchenService {
     final AtomicLong cookingOrderId;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
-    private final AtomicReference<BlockingDeque<MealReadyForPickupEvent>> mealReadyNotificationDeque;
+    private final AtomicReference<BlockingDeque<OutputEvent>> mealReadyNotificationDeque;
+    private final LongAdder mealsUnderPreparation;
 
     public KitchenServiceImpl() {
         this.cookingOrderId = new AtomicLong();
         this.internalIdToOrder = new ConcurrentHashMap<>();
         this.mealReadyNotificationDeque = new AtomicReference<>();
+        this.mealsUnderPreparation = new LongAdder();
     }
 
     private long nextOrderId() {
@@ -28,17 +34,37 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public void prepareMeal(long mealOrderId) {
+    public CompletableFuture<Boolean> prepareMeal(long mealOrderId) {
         DeliveryOrder order = internalIdToOrder.get(mealOrderId);
         if(order != null) {
+            mealsUnderPreparation.increment();
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            RequestCookEvent requestCookEvent = new RequestCookEvent(mealOrderId, order.id);
-            CompletableFuture.runAsync(requestCookEvent,
-                    CompletableFuture.delayedExecutor(order.prepTime, TimeUnit.MILLISECONDS));
-            return;
+            OrderPreparedEventSupplier supplier = new OrderPreparedEventSupplier(mealOrderId, order.id);
+            return schedule(order, supplier);
         }
         String template = "Unable to find the given cookReservationId id[%d]";
-        throw new NoSuchElementException(String.format(template, mealOrderId));
+        return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, mealOrderId)));
+    }
+
+    private CompletableFuture<Boolean> schedule(DeliveryOrder order, OrderPreparedEventSupplier supplier) {
+        CompletableFuture<Boolean> scheduleHandle = CompletableFuture
+                .supplyAsync(supplier, CompletableFuture.delayedExecutor(order.prepTime, TimeUnit.MILLISECONDS))
+                .thenApply(readyForPickup -> {
+                    try {
+                        if(null != this.mealReadyNotificationDeque.get()) {
+                            this.mealReadyNotificationDeque.get().put(readyForPickup);
+                            return true;
+                        }
+                    } catch (InterruptedException e) {
+                        log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
+                    }
+                    return false;
+                });
+        scheduleHandle.handleAsync((ev, ex) -> {
+            mealsUnderPreparation.decrement();
+            return null;
+        });
+        return scheduleHandle;
     }
 
     @Override
@@ -50,40 +76,21 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public void cancelCookReservation(long mealReservationId) {
-        internalIdToOrder.remove(mealReservationId);
-    }
-
-    private class RequestCookEvent implements Runnable {
-        private final long mealOrderId;
-        private final String deliveryOrderId;
-
-        public RequestCookEvent(long mealReservationId, String deliveryOrderId) {
-            this.mealOrderId = mealReservationId;
-            this.deliveryOrderId = deliveryOrderId;
+    public boolean cancelCookReservation(long mealReservationId) {
+        if(null != internalIdToOrder.get(mealReservationId)) {
+            internalIdToOrder.remove(mealReservationId);
+            return true;
         }
-
-        @Override
-        public void run() {
-            MealReadyForPickupEvent readyForPickup = MealReadyForPickupEvent.of(this.mealOrderId,
-                    this.deliveryOrderId,
-                    KitchenClock.now());
-            log.info("[EVENT] Order prepared: id[{}] Ready for pickup at: {}", deliveryOrderId,
-                    KitchenClock.formatted(readyForPickup.readySince));
-            attemptReportMealReadyForPickup(readyForPickup);
-        }
-    }
-
-    private void attemptReportMealReadyForPickup(MealReadyForPickupEvent readyForPickup) {
-        try {
-            this.mealReadyNotificationDeque.get().put(readyForPickup);
-        } catch (InterruptedException e) {
-            log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
-        }
+        return false;
     }
 
     @Override
-    public void registerMealNotificationReadyQueue(BlockingDeque<MealReadyForPickupEvent> deque) {
+    public void registerMealNotificationReadyQueue(BlockingDeque<OutputEvent> deque) {
         this.mealReadyNotificationDeque.updateAndGet(oldValue -> deque);
+    }
+
+    @Override
+    public boolean isKitchenIdle() {
+        return this.mealsUnderPreparation.sum() == 0L;
     }
 }

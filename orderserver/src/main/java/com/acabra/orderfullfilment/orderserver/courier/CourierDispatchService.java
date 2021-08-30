@@ -1,12 +1,10 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.courier.event.CourierReadyForPickupEvent;
-import com.acabra.orderfullfilment.orderserver.kitchen.event.MealReadyForPickupEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingDeque;
 
 public interface CourierDispatchService {
 
@@ -22,6 +20,6 @@ public interface CourierDispatchService {
      * @param mealReadyEvent the details of the meal prepared
      * @return a completable future allowing callers to take additional actions upon completion (if needed)
      */
-    CompletableFuture<Void> processMealReady(MealReadyForPickupEvent mealReadyEvent);
+    CompletableFuture<Void> processMealReady(OrderPreparedEvent mealReadyEvent);
 
 }
