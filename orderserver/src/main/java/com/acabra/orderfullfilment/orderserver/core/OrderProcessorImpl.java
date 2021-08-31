@@ -1,74 +1,139 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
+import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
-import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderserver.dto.OrderMapper;
-import com.acabra.orderfullfilment.orderserver.event.EventType;
-import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
-import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
+import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 @Slf4j
 public class OrderProcessorImpl implements OrderProcessor {
-    private static final OrderMapper orderMapper = new OrderMapper();
-    private final CourierDispatchService courierService;
-    private final KitchenServiceImpl kitchenService;
-    private final ExecutorService fixThreadPool;
 
-    public OrderProcessorImpl(CourierDispatchService courierService, KitchenServiceImpl kitchen) {
+    private final CourierDispatchService courierService;
+    private final KitchenService kitchenService;
+    private final MetricsProcessor metricsProcessor;
+    private final BlockingDeque<OutputEvent> notificationDeque;
+
+    public OrderProcessorImpl(OrderServerConfig orderServerConfig,
+                              CourierDispatchService courierService,
+                              KitchenService kitchenService,
+                              OrderRequestHandler orderHandler) {
         final BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        startStartProcessorsList(orderServerConfig.getThreadCount(), deque);
+        this.notificationDeque = deque;
+        this.metricsProcessor = new MetricsProcessor();
         this.courierService = courierService;
-        this.kitchenService = kitchen;
+        this.courierService.registerNotificationDeque(deque);
+        this.kitchenService = kitchenService;
         this.kitchenService.registerMealNotificationReadyQueue(deque);
-        this.fixThreadPool = Executors.newSingleThreadExecutor();
-        CompletableFuture.runAsync(() -> new Thread(new OutputEventHandler(deque)).start(), fixThreadPool);
+        orderHandler.registerNotificationDeque(deque);
+    }
+
+    private List<OutputEventHandler> startStartProcessorsList(int threadCount, BlockingDeque<OutputEvent> deque) {
+        return IntStream.range(0,threadCount)
+                .mapToObj(i-> {
+                    OutputEventHandler outputEventHandler = new OutputEventHandler(i, deque);
+                    CompletableFuture.runAsync(outputEventHandler::start);
+                    return outputEventHandler;
+                })
+                .collect(Collectors.toList());
     }
 
     @Override
-    public void processOrder(final DeliveryOrderRequest orderRequest) {
-        DeliveryOrder order = orderMapper.fromDeliveryOrderRequest(orderRequest, KitchenClock.now());
-        log.info("[EVENT] Order received : {} at: {}" , order.id, KitchenClock.formatted(order.receivedTime));
-        final long mealReservationId = kitchenService.orderCookReservationId(order);
-        CompletableFuture
-                .supplyAsync(() -> courierService.dispatchRequest(order))
-                .thenAccept(courierId -> {
-                    if(courierId.isPresent()) {
-                        kitchenService.prepareMeal(mealReservationId);
-                    } else {
-                        log.info("No couriers available to deliver the order ... cancelling cooking reservation");
-                        kitchenService.cancelCookReservation(mealReservationId);
-                    }
-                });
+    public void processOrder(final OrderReceivedEvent orderReceived) {
+        log.info("[EVENT] order received : {} at: {}" , orderReceived.order.id, KitchenClock.formatted(orderReceived.createdAt));
+        DeliveryOrder order = orderReceived.order;
+        CompletableFuture<Long> kitchenReservation = CompletableFuture.supplyAsync(() -> kitchenService.orderCookReservationId(order));
+        CompletableFuture<Optional<Integer>> courierDispatch = kitchenReservation.thenApply(a -> courierService.dispatchRequest(order));
+
+        courierDispatch.thenAcceptBoth(kitchenReservation, (courierId, reservationId) -> {
+            if(courierId.isPresent()) {
+                log.info("[EVENT] courier dispatched: id[{}]", courierId.get());
+                kitchenService.prepareMeal(reservationId);
+            } else {
+                log.info("No couriers available to deliver the order ... cancelling cooking reservation");
+                kitchenService.cancelCookReservation(reservationId);
+            }
+        });
     }
 
-    private void processOutputEvent(final OutputEvent outputEvent) {
-        log.info("Output event processed : " + outputEvent.type.message);
-        if (EventType.ORDER_PREPARED == outputEvent.type) {
-            courierService.processMealReady((OrderPreparedEvent) outputEvent);
+    private void dispatchOutputEvent(final OutputEvent outputEvent) {
+        switch (outputEvent.type) {
+            case ORDER_PREPARED:
+                OrderPreparedEvent prepared = (OrderPreparedEvent) outputEvent;
+                courierService.processMealReady(prepared);
+                break;
+            case ORDER_RECEIVED:
+                OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
+                processOrder(orderReceivedEvent);
+                break;
+            case ORDER_PICKED_UP:
+                OrderPickedUpEvent pickedUp = (OrderPickedUpEvent) outputEvent;
+                processOrderPickedUp(pickedUp);
+                break;
+            case ORDER_DELIVERED:
+                OrderDeliveredEvent orderDeliveredEvent = (OrderDeliveredEvent) outputEvent;
+                log.info("[EVENT] order delivered: orderId[{}] by courierId[{}] at {}",
+                    orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId,
+                        KitchenClock.formatted(orderDeliveredEvent.createdAt));
+                break;
+            default:
+                throw new UnsupportedOperationException("Event not recognized by the system" + outputEvent.type);
         }
     }
 
-    class OutputEventHandler implements Runnable {
+    private void processOrderPickedUp(OrderPickedUpEvent orderPickedUpEvent) {
+        recordMetrics(orderPickedUpEvent);
+
+        //note we are publishing a delivery note with the exact same time as the pickup time (instant delivery)
+        publishDeliveryEvent(OrderDeliveredEvent.of(orderPickedUpEvent));
+    }
+
+    private void publishDeliveryEvent(OrderDeliveredEvent orderDeliveredEvent) {
+        try {
+            this.notificationDeque.put(orderDeliveredEvent);
+        } catch (InterruptedException e) {
+            log.error("Failure to publish the delivery notification event ");
+        }
+    }
+
+    private void recordMetrics(OrderPickedUpEvent orderPickedUpEvent) {
+        this.metricsProcessor.acceptFoodWaitTime(orderPickedUpEvent.foodWaitTime);
+        log.info("[METRICS] Food wait time: {}ms, order {}", orderPickedUpEvent.foodWaitTime,
+                orderPickedUpEvent.mealOrderId);
+        this.metricsProcessor.acceptCourierWaitTime(orderPickedUpEvent.courierWaitTime);
+        log.info("[METRICS] Courier wait time {}ms on orderId:[{}]", orderPickedUpEvent.courierWaitTime,
+                orderPickedUpEvent.mealOrderId);
+    }
+
+    private class OutputEventHandler extends Thread {
         private final BlockingDeque<OutputEvent> deque;
         volatile boolean end = false;
 
-        public OutputEventHandler(final BlockingDeque<OutputEvent> deque) {
+        public OutputEventHandler(final int id, final BlockingDeque<OutputEvent> deque) {
+            super("OutputEventHandlerThread " + id);
             this.deque = deque;
         }
 
         @Override
-        public void run() {
+        public void start() {
+            log.info("{} started", this);
             try {
                 while(!end) {
                     OutputEvent take = deque.take();
-                    CompletableFuture.runAsync(() -> processOutputEvent(take));
+                    CompletableFuture.runAsync(() -> dispatchOutputEvent(take));
                 }
             } catch (InterruptedException e) {
                 log.error("Monitor interrupted thread failed!!" + e.getMessage(), e);

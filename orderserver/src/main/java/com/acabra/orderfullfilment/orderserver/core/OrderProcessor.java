@@ -1,12 +1,12 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
-import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
+import com.acabra.orderfullfilment.orderserver.event.OrderReceivedEvent;
 
 public interface OrderProcessor {
     /**
      * Request a dispatch of a courier
      * Request meal cooking to the kitchen
-     * @param orderRequest an order request
+     * @param orderReceivedEvent an order received event
      */
-    void processOrder(DeliveryOrderRequest orderRequest);
+    void processOrder(OrderReceivedEvent orderReceived);
 }

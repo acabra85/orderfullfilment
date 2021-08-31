@@ -1,5 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +40,7 @@ public class KitchenServiceImpl implements KitchenService {
         if(order != null) {
             mealsUnderPreparation.increment();
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            OrderPreparedEventSupplier supplier = new OrderPreparedEventSupplier(mealOrderId, order.id);
-            return schedule(order, supplier);
+            return schedule(order, OrderPreparedEventSupplier.of(mealOrderId, order.id));
         }
         String template = "Unable to find the given cookReservationId id[%d]";
         return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, mealOrderId)));
@@ -49,22 +49,24 @@ public class KitchenServiceImpl implements KitchenService {
     private CompletableFuture<Boolean> schedule(DeliveryOrder order, OrderPreparedEventSupplier supplier) {
         CompletableFuture<Boolean> scheduleHandle = CompletableFuture
                 .supplyAsync(supplier, CompletableFuture.delayedExecutor(order.prepTime, TimeUnit.MILLISECONDS))
-                .thenApply(readyForPickup -> {
-                    try {
-                        if(null != this.mealReadyNotificationDeque.get()) {
-                            this.mealReadyNotificationDeque.get().put(readyForPickup);
-                            return true;
-                        }
-                    } catch (InterruptedException e) {
-                        log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
-                    }
-                    return false;
-                });
+                .thenApplyAsync(this::publishEventOrderReadyForPickup);
         scheduleHandle.handleAsync((ev, ex) -> {
             mealsUnderPreparation.decrement();
             return null;
         });
         return scheduleHandle;
+    }
+
+    private boolean publishEventOrderReadyForPickup(OrderPreparedEvent readyForPickup) {
+        try {
+            if(null != this.mealReadyNotificationDeque.get()) {
+                this.mealReadyNotificationDeque.get().put(readyForPickup);
+                return true;
+            }
+        } catch (InterruptedException e) {
+            log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
+        }
+        return false;
     }
 
     @Override
@@ -77,11 +79,7 @@ public class KitchenServiceImpl implements KitchenService {
 
     @Override
     public boolean cancelCookReservation(long mealReservationId) {
-        if(null != internalIdToOrder.get(mealReservationId)) {
-            internalIdToOrder.remove(mealReservationId);
-            return true;
-        }
-        return false;
+        return null != internalIdToOrder.remove(mealReservationId);
     }
 
     @Override

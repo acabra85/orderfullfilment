@@ -1,14 +1,12 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
-public class OrderPreparedEvent extends OutputEvent{
+public class OrderPreparedEvent extends OutputEvent {
     public final long mealOrderId;
-    public final long readySince;
     public final String deliveryOrderId;
 
-    private OrderPreparedEvent(long mealOrderId, String deliveryOrderId, long readySince) {
-        super(EventType.ORDER_PREPARED);
+    private OrderPreparedEvent(long mealOrderId, String deliveryOrderId, long createdAt) {
+        super(EventType.ORDER_PREPARED, createdAt);
         this.mealOrderId = mealOrderId;
-        this.readySince = readySince;
         this.deliveryOrderId = deliveryOrderId;
     }
 

@@ -1,6 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.control;
 
-import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
+import com.acabra.orderfullfilment.orderserver.core.OrderRequestHandler;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponse;
 import com.acabra.orderfullfilment.orderserver.dto.SimpleResponseImpl;
@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping(value = "/orders",
@@ -22,15 +23,18 @@ import java.util.Optional;
 @Slf4j
 public class OrderController {
 
-    private final OrderProcessor orderProcessor;
+    private final OrderRequestHandler orderRequestHandler;
 
-    public OrderController(OrderProcessor orderService) {
-        this.orderProcessor = orderService;
+    public OrderController(OrderRequestHandler handler) {
+        this.orderRequestHandler = handler;
     }
 
     @PostMapping
     public ResponseEntity<SimpleResponse<String>> acceptOrder(@RequestBody DeliveryOrderRequest deliveryOrderRequest) {
-        orderProcessor.processOrder(deliveryOrderRequest);
-        return ResponseEntity.of(Optional.of(new SimpleResponseImpl<>(HttpStatus.OK.value(), "order accepted", null)));
+        if (deliveryOrderRequest.prepTime >= 0) {
+            CompletableFuture.runAsync(() -> this.orderRequestHandler.accept(deliveryOrderRequest));
+            return ResponseEntity.of(Optional.of(new SimpleResponseImpl<>(HttpStatus.ACCEPTED.value(), "order accepted", null)));
+        }
+        return ResponseEntity.of(Optional.of(new SimpleResponseImpl<>(HttpStatus.BAD_REQUEST.value(), "order accepted", null)));
     }
 }

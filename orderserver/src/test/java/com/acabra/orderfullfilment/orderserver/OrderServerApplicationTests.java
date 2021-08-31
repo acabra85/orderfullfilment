@@ -6,10 +6,6 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @TestPropertySource("classpath:application.properties")
-class OrderserverApplicationTests {
-
-    @Test
-    void contextLoads() {
-    }
-
+class OrderServerApplicationTests {
+    @Test void contextLoads() {}
 }

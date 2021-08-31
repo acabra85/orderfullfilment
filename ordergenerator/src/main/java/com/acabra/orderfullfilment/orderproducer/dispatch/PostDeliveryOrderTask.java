@@ -17,6 +17,7 @@ public class PostDeliveryOrderTask implements Runnable {
 
     private final OrderDispatcher parent;
     private final Iterator<DeliveryOrderRequest> iterator;
+    volatile boolean stop = false;
 
     public PostDeliveryOrderTask(OrderDispatcher parent, Iterator<DeliveryOrderRequest> iterator) {
         this.parent = parent;
@@ -24,31 +25,47 @@ public class PostDeliveryOrderTask implements Runnable {
     }
 
     @Override public void run() {
+        try {
+            while(!stop) {
+                sendTwoDeliveryRequestsEveryCycle();
+            }
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            log.error(e.getMessage(), e);
+        }
+    }
+
+    private void sendTwoDeliveryRequestsEveryCycle() {
         boolean finish = false;
         for (int i = 0; i < TOTAL_ORDERS_PER_SECOND && iterator.hasNext() && !finish; i++) {
             try {
                 DeliveryOrderRequest order = iterator.next();
                 if (!DeliveryOrderRequest.SIG_PILL_ID.equals(order.id)) {
-                    HttpEntity<DeliveryOrderRequest> request = new HttpEntity<>(order, HEADERS);
-                    ResponseEntity<SimpleResponse> response = parent.getRestTemplate().postForEntity(ORDERS_RESOURCE, request, SimpleResponse.class);
-                    if (HttpStatus.OK == response.getStatusCode()) {
-                        parent.incrementOrderSuccesses();
-                    } else {
-                        parent.incrementOrderFailures();
-                    }
+                    sendHttpRequest(order);
                 } else {
                     finish = true;
                 }
             } catch (Exception e) {
                 parent.incrementOrderFailures();
-                log.error(e.getMessage());
-                log.error(ExceptionUtils.getRootCause(e).getMessage());
-                log.error("Halting order production");
+                log.error("Halting order production {} {}", e.getMessage(), ExceptionUtils.getRootCause(e).getMessage());
                 finish = true;
             }
         }
         if (!iterator.hasNext() || finish) {
             parent.reportWorkCompleted();
+        }
+    }
+
+    private void sendHttpRequest(DeliveryOrderRequest order) {
+        HttpEntity<DeliveryOrderRequest> request = new HttpEntity<>(order, HEADERS);
+        ResponseEntity<SimpleResponse> response = parent.getRestTemplate()
+                    .postForEntity(ORDERS_RESOURCE, request, SimpleResponse.class);
+        if (HttpStatus.Series.SUCCESSFUL == response.getStatusCode().series()) {
+            parent.incrementOrderSuccesses();
+        } else {
+            log.info("Order was not accepted");
+            parent.incrementOrderFailures();
         }
     }
 

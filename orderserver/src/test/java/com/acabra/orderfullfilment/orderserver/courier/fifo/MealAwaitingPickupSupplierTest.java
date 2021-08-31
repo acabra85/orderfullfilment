@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.orderserver.courier.fifo;
 
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderPickedUpEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.assertj.core.api.Assertions;
@@ -15,6 +16,7 @@ import java.util.concurrent.*;
 class MealAwaitingPickupSupplierTest {
 
     MealAwaitingPickupSupplier underTest;
+    private OrderPreparedEvent stubEvent = OrderPreparedEvent.of(1, "some-order-id", 3456L);
 
     @AfterEach
     public void setup() {
@@ -25,8 +27,8 @@ class MealAwaitingPickupSupplierTest {
     public void shouldWaitRetrieveValidEvent_fromTheEmptyDeque() throws InterruptedException, ExecutionException {
         //given
         final LinkedBlockingDeque<OutputEvent> queue = new LinkedBlockingDeque<>();
-        long readySince = 3456L;
-        underTest = new MealAwaitingPickupSupplier(queue, readySince);
+        long readySince = stubEvent.createdAt;
+        underTest = MealAwaitingPickupSupplier.of(queue, stubEvent);
         CompletableFuture<OrderPickedUpEvent> future = CompletableFuture.supplyAsync(underTest);
         Assertions.assertThat(queue.isEmpty()).isTrue();
         final CourierArrivedEvent event = CourierArrivedEvent.of(952161, 11234L, 6454L);
@@ -44,8 +46,8 @@ class MealAwaitingPickupSupplierTest {
         OrderPickedUpEvent actual = future.get();
         Assertions.assertThat(actual).isNotNull();
         Assertions.assertThat(actual.courierId).isEqualTo(event.courierId);
-        Assertions.assertThat(actual.courierWaitTime).isEqualTo(actual.at-event.createdAt);
-        Assertions.assertThat(actual.foodWaitTime).isEqualTo(actual.at-readySince);
+        Assertions.assertThat(actual.courierWaitTime).isEqualTo(actual.createdAt-event.createdAt);
+        Assertions.assertThat(actual.foodWaitTime).isEqualTo(actual.createdAt-readySince);
     }
 
     @Test
@@ -56,8 +58,8 @@ class MealAwaitingPickupSupplierTest {
             add(event);
         }};
         Assertions.assertThat(queue.isEmpty()).isFalse();
-        long readySince = 3456L;
-        underTest = new MealAwaitingPickupSupplier(queue, readySince);
+        long readySince = stubEvent.createdAt;
+        underTest = MealAwaitingPickupSupplier.of(queue, stubEvent);
         CompletableFuture<OrderPickedUpEvent> future = CompletableFuture.supplyAsync(underTest,
                 CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS));
 
@@ -74,8 +76,8 @@ class MealAwaitingPickupSupplierTest {
         OrderPickedUpEvent actual = future.get();
         Assertions.assertThat(actual).isNotNull();
         Assertions.assertThat(actual.courierId).isEqualTo(event.courierId);
-        Assertions.assertThat(actual.courierWaitTime).isEqualTo(actual.at-event.createdAt);
-        Assertions.assertThat(actual.foodWaitTime).isEqualTo(actual.at-readySince);
+        Assertions.assertThat(actual.courierWaitTime).isEqualTo(actual.createdAt-event.createdAt);
+        Assertions.assertThat(actual.foodWaitTime).isEqualTo(actual.createdAt-readySince);
     }
 
     @Test
@@ -84,7 +86,7 @@ class MealAwaitingPickupSupplierTest {
         LinkedBlockingDeque<OutputEvent> queue = Mockito.mock(LinkedBlockingDeque.class);
         Mockito.doThrow(InterruptedException.class).when(queue).take();
         long readySince = 3456L;
-        underTest = new MealAwaitingPickupSupplier(queue, readySince);
+        underTest = MealAwaitingPickupSupplier.of(queue, stubEvent);
 
         //when
         OrderPickedUpEvent actual = underTest.get();

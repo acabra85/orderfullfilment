@@ -5,7 +5,8 @@ public enum EventType {
     ORDER_PREPARED("order prepared"),
     COURIER_DISPATCHED("courier dispatched"),
     COURIER_ARRIVED("courier arrived"),
-    ORDER_PICKED_UP("order picked up");
+    ORDER_PICKED_UP("order picked up"),
+    ORDER_DELIVERED("order delivered");
 
     public final String message;
 

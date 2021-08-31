@@ -17,7 +17,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 class KitchenServiceImplTest {
 
     private KitchenService underTest;
-    private final DeliveryOrder deliveryStub = new DeliveryOrder("id-order-stub", "banana-split", 3, 0);
+    private final DeliveryOrder deliveryStub = DeliveryOrder.of("id-order-stub", "banana-split", 3);
     private BlockingDeque<OutputEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
 
     @BeforeEach

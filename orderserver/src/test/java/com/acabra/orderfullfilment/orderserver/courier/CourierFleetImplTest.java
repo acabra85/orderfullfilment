@@ -25,7 +25,7 @@ class CourierFleetImplTest {
 
     private CourierFleet underTest;
 
-    private final DeliveryOrder validOrder = new DeliveryOrder("order-it-test", 2131231, 3131221);
+    private final DeliveryOrder validOrder = DeliveryOrder.of("order-it-test", "my-meal", 3131221);
     private final EtaEstimator etaEstimatorMock = Mockito.mock(EtaEstimator.class);
 
     @BeforeEach

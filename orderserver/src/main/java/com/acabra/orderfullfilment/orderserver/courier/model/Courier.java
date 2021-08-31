@@ -48,7 +48,7 @@ public class Courier {
             throw new IllegalStateException("Courier is already available");
         }
         this.status.updateAndGet(oldStatus -> CourierStatus.AVAILABLE);
-        log.info("Courier {} is now available", id);
+        log.debug("Courier {} is now available", id);
     }
 
     public boolean isAvailable() {

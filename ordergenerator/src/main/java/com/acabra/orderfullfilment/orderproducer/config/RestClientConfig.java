@@ -17,14 +17,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.springframework.http.HttpStatus.Series.SERVER_ERROR;
+
 @Configuration
 @Slf4j
 public class RestClientConfig {
 
     private final ResponseErrorHandler errorHandler = new DefaultResponseErrorHandler() {
         @Override
-        public void handleError(ClientHttpResponse response) throws IOException {
-            log.info("Silent error handler got: " + response.getRawStatusCode());
+        public void handleError(ClientHttpResponse httpResponse) throws IOException {
+            if(httpResponse.getStatusCode().series() == SERVER_ERROR) {
+                throw new RuntimeException("Error with the server");
+            }
+            log.info("Ignoring exception handler got: " + httpResponse.getRawStatusCode());
         }
     };
 

@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.orderserver.courier.fifo;
 
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderPickedUpEvent;
+import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
@@ -13,20 +14,25 @@ import java.util.function.Supplier;
 public class MealAwaitingPickupSupplier implements Supplier<OrderPickedUpEvent> {
 
     private final BlockingDeque<OutputEvent> queue;
-    private final long readySince;
+    private final long orderReadySince;
+    private final long mealOrderId;
 
-    public MealAwaitingPickupSupplier(BlockingDeque<OutputEvent> queue, long readySince) {
+    private MealAwaitingPickupSupplier(BlockingDeque<OutputEvent> queue, long orderReadySince, long mealOrderId) {
         this.queue = queue;
-        this.readySince = readySince;
+        this.orderReadySince = orderReadySince;
+        this.mealOrderId = mealOrderId;
+    }
+
+    public static MealAwaitingPickupSupplier of(BlockingDeque<OutputEvent> deque, OrderPreparedEvent orderPreparedEvent) {
+        return new MealAwaitingPickupSupplier(deque, orderPreparedEvent.createdAt, orderPreparedEvent.mealOrderId);
     }
 
     @Override
     public OrderPickedUpEvent get() {
         try {
-            CourierArrivedEvent courier = (CourierArrivedEvent) queue.take();
-            long now = KitchenClock.now();
-            OrderPickedUpEvent ev = new OrderPickedUpEvent(now, now - courier.createdAt, now - readySince, courier.courierId);
-            return ev;
+            CourierArrivedEvent courierArrivedEvent = (CourierArrivedEvent) queue.take();
+            return OrderPickedUpEvent.of(KitchenClock.now(), courierArrivedEvent,
+                    orderReadySince, mealOrderId);
         } catch (InterruptedException e) {
             log.error("Failed to match a courier to deliver the order: {}", e.getMessage(), e);
         } catch (Exception e) {

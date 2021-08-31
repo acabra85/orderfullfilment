@@ -1,4 +1,4 @@
-package com.acabra.orderfullfilment.orderserver.courier;
+package com.acabra.orderfullfilment.orderserver.config;
 
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.fasterxml.jackson.core.type.TypeReference;

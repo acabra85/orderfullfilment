@@ -7,11 +7,9 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class OrderDispatcher {
@@ -29,11 +27,8 @@ public class OrderDispatcher {
     }
 
     public void dispatch(final List<DeliveryOrderRequest> orders) {
-        Iterator<DeliveryOrderRequest> iterator = orders.iterator();//List.of(orders.get(0)).iterator();
-        scheduledExecutorService.scheduleAtFixedRate(
-                new PostDeliveryOrderTask(this, iterator),
-                500L, //delay
-                1000L, TimeUnit.MILLISECONDS);
+        Iterator<DeliveryOrderRequest> iterator = orders.iterator();
+        CompletableFuture.runAsync(new PostDeliveryOrderTask(this, iterator), scheduledExecutorService);
     }
 
 

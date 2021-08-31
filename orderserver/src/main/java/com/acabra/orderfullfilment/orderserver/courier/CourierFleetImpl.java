@@ -92,7 +92,7 @@ public class CourierFleetImpl implements CourierFleet {
         long eta = KitchenClock.now() + 1000L * timeToDestination;
         return CompletableFuture.supplyAsync(() -> {
                     CourierArrivedEvent pickupEvent = CourierArrivedEvent.of(courierId, eta, KitchenClock.now());
-                    log.info("[EVENT] Courier arrived id[{}], for pickup at {}ms", pickupEvent.courierId,
+                    log.info("[EVENT] courier arrived id[{}], for pickup at {}ms", pickupEvent.courierId,
                             KitchenClock.formatted(pickupEvent.createdAt));
                     try {
                         if(courierAvailableNotificationDeque.get() != null) {

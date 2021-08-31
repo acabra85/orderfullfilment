@@ -10,18 +10,21 @@ public class OrderPreparedEventSupplier implements Supplier<OrderPreparedEvent> 
     private final long mealOrderId;
     private final String deliveryOrderId;
 
-    public OrderPreparedEventSupplier(long mealReservationId, String deliveryOrderId) {
+    private OrderPreparedEventSupplier(long mealReservationId, String deliveryOrderId) {
         this.mealOrderId = mealReservationId;
         this.deliveryOrderId = deliveryOrderId;
     }
 
+    public static OrderPreparedEventSupplier of(long mealOrderId, String id) {
+        return new OrderPreparedEventSupplier(mealOrderId, id);
+    }
+
     @Override
     public OrderPreparedEvent get() {
-        OrderPreparedEvent readyForPickup = OrderPreparedEvent.of(this.mealOrderId,
-                this.deliveryOrderId,
+        OrderPreparedEvent orderPreparedEvent = OrderPreparedEvent.of(this.mealOrderId, this.deliveryOrderId,
                 KitchenClock.now());
-        log.info("[EVENT] Order prepared: id[{}] Ready for pickup at: {}", deliveryOrderId,
-                KitchenClock.formatted(readyForPickup.readySince));
-        return readyForPickup;
+        log.info("[EVENT] order prepared: mealId{}, orderId[{}] at {}", orderPreparedEvent.mealOrderId,
+                orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
+        return orderPreparedEvent;
     }
 }
