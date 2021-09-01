@@ -4,31 +4,41 @@ import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
-public class OrderDispatcher {
+public class PeriodicOrderDispatcherClientImpl implements PeriodicOrderDispatcherClient {
 
     static final String ORDERS_RESOURCE = "http://localhost:9000/orderserver/api/orders";
-    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+    public static final long ONE_SECOND_TO_MILLIS = 1000;
     private final LongAdder orderSuccessCounter = new LongAdder();
     private final LongAdder orderFailures = new LongAdder();
     private final LinkedList<CountDownLatch> listeners = new LinkedList<>();
     private final RestTemplate rTemplate;
     private volatile boolean shutDownRequested = false;
+    private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 
-    public OrderDispatcher(RestTemplate restTemplate) {
+    public PeriodicOrderDispatcherClientImpl(RestTemplate restTemplate) {
         this.rTemplate = restTemplate;
     }
 
-    public void dispatch(final List<DeliveryOrderRequest> orders) {
-        Iterator<DeliveryOrderRequest> iterator = orders.iterator();
-        CompletableFuture.runAsync(new PostDeliveryOrderTask(this, iterator), scheduledExecutorService);
+    @Override
+    public void dispatchEverySecond(int frequency, final List<DeliveryOrderRequest> orders) {
+        BlockingQueue<DeliveryOrderRequest> deque = new LinkedBlockingDeque<>(orders);
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            if(shutDownRequested) {
+                return;
+            }
+            DeliveryOrderRequest take = deque.poll();
+            if(take == null || take.isSigPill) {
+                reportWorkCompleted();
+                return;
+            }
+            new PostDeliveryOrderTask(this, take).run();
+        }, 0, ONE_SECOND_TO_MILLIS / frequency, TimeUnit.MILLISECONDS);
     }
 
 
@@ -45,10 +55,12 @@ public class OrderDispatcher {
         return new CountDownLatch(0);
     }
 
-    public void reportWorkCompleted() {
-        shutDownRequested = true;
-        listeners.iterator().forEachRemaining(CountDownLatch::countDown);
-        scheduledExecutorService.shutdown();
+    void reportWorkCompleted() {
+        if(!shutDownRequested) {
+            shutDownRequested = true;
+            listeners.iterator().forEachRemaining(CountDownLatch::countDown);
+            scheduledExecutorService.shutdown();
+        }
     }
 
     public RestTemplate getRestTemplate() {

@@ -1,6 +1,6 @@
 package com.acabra.orderfullfilment.orderproducer;
 
-import com.acabra.orderfullfilment.orderproducer.dispatch.OrderDispatcher;
+import com.acabra.orderfullfilment.orderproducer.dispatch.PeriodicOrderDispatcherClientImpl;
 import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,7 +9,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
 import java.io.*;
@@ -32,13 +31,13 @@ public class OrderGeneratorApp {
     }
 
     @Bean
-    public CommandLineRunner run(OrderDispatcher orderDispatcher, ResourceLoader resourceLoader) throws Exception {
+    public CommandLineRunner run(PeriodicOrderDispatcherClientImpl orderDispatcher, ResourceLoader resourceLoader) throws Exception {
         this.resourceLoader = resourceLoader;
         return args -> {
             log.info("Starting CLI ...");
             String param = args != null && args.length > 0 ? args[0] : null;
             List<DeliveryOrderRequest> orders = readOrdersFromFile(param);
-            orderDispatcher.dispatch(orders);
+            orderDispatcher.dispatchTwoOrdersPerSecond(orders);
             orderDispatcher.registerListener().await(orders.size(), TimeUnit.SECONDS);
             log.info("Finishing CLI ...");
         };

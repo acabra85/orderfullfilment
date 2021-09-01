@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {RestClientConfig.class})
-class OrderDispatcherTest {
+class PeriodicOrderDispatcherClientImplTest {
 
-    protected OrderDispatcher underTest;
+    protected PeriodicOrderDispatcherClientImpl underTest;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -37,26 +37,26 @@ class OrderDispatcherTest {
     @BeforeEach
     void setUp() {
         mockServer = MockRestServiceServer.createServer(restTemplate);
-        underTest = new OrderDispatcher(restTemplate);
+        underTest = new PeriodicOrderDispatcherClientImpl(restTemplate);
     }
 
     @Test
     public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalled_thenReturnsSuccess() throws URISyntaxException, InterruptedException {
         //given
-        List<DeliveryOrderRequest> orders = TestUtils.getOrders(5);
+        List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
 
         mockServer.expect(ExpectedCount.times(orders.size()),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatch(orders);
+        underTest.dispatchTwoOrdersPerSecond(orders);
 
         //then
         Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        OrderDispatcher.OrderDispatcherStatus actual = underTest.totalOrders();
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
         Assertions.assertThat(actual.success).isEqualTo(orders.size());
         Assertions.assertThat(actual.failures).isEqualTo(0);
     }
@@ -69,18 +69,35 @@ class OrderDispatcherTest {
         List<DeliveryOrderRequest> orders = TestUtils.getOrdersWithSigPillAtPos(5, posSigPill);
 
         mockServer.expect(ExpectedCount.times(expectedSuccessCalls),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatch(orders);
-
+        underTest.dispatchTwoOrdersPerSecond(orders);
 
         //then
         Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        OrderDispatcher.OrderDispatcherStatus actual = underTest.totalOrders();
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
+        Assertions.assertThat(actual.success).isEqualTo(expectedSuccessCalls);
+        Assertions.assertThat(actual.failures).isEqualTo(0);
+    }
+
+    @Test
+    public void givenDispatcherIsCompleted_whenRegisteringListenerHasNoEffects() throws URISyntaxException, InterruptedException {
+        //given
+        int expectedSuccessCalls = 0;
+        int posSigPill = 0;
+        List<DeliveryOrderRequest> orders = TestUtils.getOrdersWithSigPillAtPos(1, posSigPill);
+
+        //when
+        underTest.dispatchTwoOrdersPerSecond(orders);
+        Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
+
+        //then
+        Assertions.assertThat(underTest.registerListener().getCount()).isEqualTo(0);
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
         Assertions.assertThat(actual.success).isEqualTo(expectedSuccessCalls);
         Assertions.assertThat(actual.failures).isEqualTo(0);
     }
@@ -88,21 +105,21 @@ class OrderDispatcherTest {
     @Test
     public void givenMockIsDoneByMockRestServiceServer_whenCallsFail_countsFailures() throws URISyntaxException, InterruptedException {
         //given
-        List<DeliveryOrderRequest> orders = TestUtils.getOrders(5);
+        List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
 
-        String responseText = "{\"statusCode\":400, \"message\": \"message\", \"body\":null}";
+        String responseText = "{\"message\": \"message\", \"body\":null}";
         mockServer.expect(ExpectedCount.times(orders.size()),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body(responseText));
 
         //when
-        underTest.dispatch(orders);
+        underTest.dispatchTwoOrdersPerSecond(orders);
 
         //then
         Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        OrderDispatcher.OrderDispatcherStatus actual = underTest.totalOrders();
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
         Assertions.assertThat(actual.success).isEqualTo(0);
         Assertions.assertThat(actual.failures).isEqualTo(5);
     }

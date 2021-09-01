@@ -1,13 +1,13 @@
 package com.acabra.orderfullfilment.orderproducer.dispatch;
 
-import com.acabra.orderfullfilment.orderproducer.TestUtils;
 import com.acabra.orderfullfilment.orderproducer.config.RestClientConfig;
 import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
-
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -21,7 +21,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Iterator;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {RestClientConfig.class})
@@ -32,6 +31,7 @@ class PostDeliveryOrderTaskTest {
     @Autowired
     private RestTemplate restTemplate;
     private MockRestServiceServer mockServer;
+    private final DeliveryOrderRequest orderStub = new DeliveryOrderRequest("1", "1", 1);
 
     @BeforeEach
     public void setup() {
@@ -41,13 +41,12 @@ class PostDeliveryOrderTaskTest {
     @Test
     public void shouldFail_errorWithServer() throws URISyntaxException {
         //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
 
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrders(3).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
+        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
         mockServer.expect(ExpectedCount.times(1),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
                 .andRespond((r) -> {
                     throw new RuntimeException("error");
@@ -59,151 +58,38 @@ class PostDeliveryOrderTaskTest {
         mockServer.verify();
 
         //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
         Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures + 1L);
         Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
     }
 
     @Test
-    public void shouldNotCompleteAnyOrderEmptyIterator() throws URISyntaxException {
+    public void shouldFailNullPointerException() throws URISyntaxException {
         //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        DeliveryOrderRequest deliveryOrderRequest = null;
+        PeriodicOrderDispatcherClientImpl dispatcherMock = Mockito.mock(PeriodicOrderDispatcherClientImpl.class);
 
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrders(0).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
-        mockServer.expect(ExpectedCount.never(),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
-                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond((r) -> {
-                    throw new RuntimeException("error");
-                });
         //when
-        underTest.run();
-
-        //verify
-        mockServer.verify();
+        ThrowableAssert.ThrowingCallable throwingCallable = () -> new PostDeliveryOrderTask(dispatcherMock,
+                deliveryOrderRequest);
 
         //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+        Mockito.verifyNoInteractions(dispatcherMock);
+        Assertions.assertThatThrownBy(throwingCallable)
+                        .isExactlyInstanceOf(NullPointerException.class);
     }
 
     @Test
-    public void shouldSucceedExecutionOfTwoOrders_noSigPill() throws URISyntaxException {
+    public void shouldSucceedExecutionOrder() throws URISyntaxException {
         //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
 
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrders(10).iterator();
-        int expectedMockCalls = PostDeliveryOrderTask.TOTAL_ORDERS_PER_SECOND;
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
-        mockServer.expect(ExpectedCount.times(expectedMockCalls),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
-                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
-        //when
-        underTest.run();
-
-        //verify
-        mockServer.verify();
-
-        //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success + expectedMockCalls);
-    }
-
-    @Test
-    public void shouldSucceed1Out2Orders_sigPill() throws URISyntaxException {
-        //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
-
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrdersWithSigPillAtPos(2, 1).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
-
-        int expectedMockCalls = 1;
-        mockServer.expect(ExpectedCount.times(expectedMockCalls),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
-                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
-        //when
-        underTest.run();
-
-        //verify
-        mockServer.verify();
-
-        //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success + expectedMockCalls);
-    }
-
-    @Test
-    public void shouldSucceed0Out2Orders_sigPill() throws URISyntaxException {
-        //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
-
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrdersWithSigPillAtPos(2, 0).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
-
-        mockServer.expect(ExpectedCount.never(),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
-                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
-        //when
-        underTest.run();
-
-        //verify
-        mockServer.verify();
-
-        //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
-    }
-
-    @Test
-    public void shouldFail2Out2Orders_notSuccess() throws URISyntaxException {
-        //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
-
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrders(2).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
-
-        int expectedExecutions = 2;
-        mockServer.expect(ExpectedCount.times(expectedExecutions),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
-                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST));
-        //when
-        underTest.run();
-
-        //verify
-        mockServer.verify();
-
-        //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures + expectedExecutions);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
-    }
-
-    @Test
-    public void shouldCompleteOneOrder() throws URISyntaxException {
-        //given
-        OrderDispatcher dispatcher = new OrderDispatcher(this.restTemplate);
-        OrderDispatcher.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
-
-        Iterator<DeliveryOrderRequest> iterator = TestUtils.getOrders(1).iterator();
-        this.underTest = new PostDeliveryOrderTask(dispatcher, iterator);
+        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
         mockServer.expect(ExpectedCount.times(1),
-                        MockRestRequestMatchers.requestTo(new URI(OrderDispatcher.ORDERS_RESOURCE)))
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.OK));
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.CREATED));
         //when
         underTest.run();
 
@@ -211,9 +97,50 @@ class PostDeliveryOrderTaskTest {
         mockServer.verify();
 
         //then
-        OrderDispatcher.OrderDispatcherStatus actual = dispatcher.totalOrders();
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
         Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success + 1L);
+        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success + 1);
     }
 
+    @Test
+    public void shouldFailExecutionOrder_BadRequest() throws URISyntaxException {
+        //given
+        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+
+        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
+        mockServer.expect(ExpectedCount.times(1),
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
+                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body(""));
+        //when
+        underTest.run();
+
+        //verify
+        mockServer.verify();
+
+        //then
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
+        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures + 1);
+        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+    }
+
+    @Test
+    public void shouldRequestShutDownSigPill() throws URISyntaxException {
+        //given
+        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+
+        this.underTest = new PostDeliveryOrderTask(dispatcher, DeliveryOrderRequest.ofSigPill());
+
+        //when
+        underTest.run();
+
+        //verify
+
+        //then
+        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
+        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
+        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+    }
 }

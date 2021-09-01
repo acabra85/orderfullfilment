@@ -7,7 +7,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class TestUtils {
-    public static List<DeliveryOrderRequest> getOrders(int size) {
+    public static List<DeliveryOrderRequest> buildOrderListOfSize(int size) {
         return getOrdersWithSigPillAtPos(size, -1);
     }
 
