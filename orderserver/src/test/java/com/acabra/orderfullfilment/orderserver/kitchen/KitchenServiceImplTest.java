@@ -74,7 +74,7 @@ class KitchenServiceImplTest {
         //given
         Mockito.doNothing().when(mockDeque).put(Mockito.any(OrderPreparedEvent.class));
 
-        underTest.registerMealNotificationReadyQueue(mockDeque);
+        underTest.registerNotificationDeque(mockDeque);
         long reservationId = underTest.orderCookReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
@@ -94,7 +94,7 @@ class KitchenServiceImplTest {
     void notificationMissedAfterPrepareMeal_exceptionThrown() throws ExecutionException, InterruptedException {
         //given
         Mockito.doThrow(RuntimeException.class).when(mockDeque).put(Mockito.any(OrderPreparedEvent.class));
-        underTest.registerMealNotificationReadyQueue(mockDeque);
+        underTest.registerNotificationDeque(mockDeque);
         long reservationId = underTest.orderCookReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
@@ -115,7 +115,7 @@ class KitchenServiceImplTest {
     void notificationMissedAfterPrepareMeal_interruptedDequeOperation() throws ExecutionException, InterruptedException {
         //given
         Mockito.doThrow(InterruptedException.class).when(mockDeque).put(Mockito.any(OrderPreparedEvent.class));
-        underTest.registerMealNotificationReadyQueue(mockDeque);
+        underTest.registerNotificationDeque(mockDeque);
         long reservationId = underTest.orderCookReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 

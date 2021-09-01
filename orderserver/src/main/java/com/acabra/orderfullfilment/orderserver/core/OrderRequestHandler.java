@@ -1,8 +1,9 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
-import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
+import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
 import com.acabra.orderfullfilment.orderserver.event.OrderReceivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
@@ -10,20 +11,22 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
-@Component
+@Component("order_handler")
 @Slf4j
-public class OrderRequestHandler {
+public class OrderRequestHandler implements OutputEventPublisher, Consumer<DeliveryOrderRequestDTO> {
 
     private final AtomicReference<BlockingDeque<OutputEvent>> ordersReceivedPublicationDeque = new AtomicReference<>();
 
-    public void accept(DeliveryOrderRequest deliveryOrderRequest) {
-        if(deliveryOrderRequest.prepTime < 0) {
-            log.info("Order preparation time can't be negative: " + deliveryOrderRequest.prepTime);
+    @Override
+    public void accept(DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
+        if(deliveryOrderRequestDTO.prepTime < 0) {
+            log.info("Order preparation time can't be negative: " + deliveryOrderRequestDTO.prepTime);
             return;
         }
-        DeliveryOrder deliveryOrder = DeliveryOrder.of(deliveryOrderRequest.id, deliveryOrderRequest.name,
-                deliveryOrderRequest.prepTime);
+        DeliveryOrder deliveryOrder = DeliveryOrder.of(deliveryOrderRequestDTO.id, deliveryOrderRequestDTO.name,
+                deliveryOrderRequestDTO.prepTime);
         publishOrderReceivedEvent(OrderReceivedEvent.of(KitchenClock.now(), deliveryOrder));
     }
 
@@ -37,6 +40,7 @@ public class OrderRequestHandler {
         }
     }
 
+    @Override
     public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
         this.ordersReceivedPublicationDeque.updateAndGet(oldValue -> deque);
     }

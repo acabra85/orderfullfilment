@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.orderproducer.dispatch;
 
 import com.acabra.orderfullfilment.orderproducer.config.RestClientConfig;
 import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
+import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatus;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.LongAdder;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {RestClientConfig.class})
@@ -30,6 +33,7 @@ class PostDeliveryOrderTaskTest {
 
     @Autowired
     private RestTemplate restTemplate;
+
     private MockRestServiceServer mockServer;
     private final DeliveryOrderRequest orderStub = new DeliveryOrderRequest("1", "1", 1);
 
@@ -39,12 +43,12 @@ class PostDeliveryOrderTaskTest {
     }
 
     @Test
-    public void shouldFail_errorWithServer() throws URISyntaxException {
+    public void shouldFail_errorWithServer() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
         PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
+        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(), new LongAdder(), this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
@@ -58,20 +62,20 @@ class PostDeliveryOrderTaskTest {
         mockServer.verify();
 
         //then
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures + 1L);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
+        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount + 1L);
+        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
     }
 
     @Test
-    public void shouldFailNullPointerException() throws URISyntaxException {
+    public void shouldFailNullPointerException() {
         //given
         DeliveryOrderRequest deliveryOrderRequest = null;
         PeriodicOrderDispatcherClientImpl dispatcherMock = Mockito.mock(PeriodicOrderDispatcherClientImpl.class);
 
         //when
-        ThrowableAssert.ThrowingCallable throwingCallable = () -> new PostDeliveryOrderTask(dispatcherMock,
-                deliveryOrderRequest);
+        ThrowableAssert.ThrowingCallable throwingCallable = () -> new PostDeliveryOrderTask(dispatcherMock::reportWorkCompleted,
+                deliveryOrderRequest, new LongAdder(), new LongAdder(), this.restTemplate);
 
         //then
         Mockito.verifyNoInteractions(dispatcherMock);
@@ -80,12 +84,13 @@ class PostDeliveryOrderTaskTest {
     }
 
     @Test
-    public void shouldSucceedExecutionOrder() throws URISyntaxException {
+    public void shouldSucceedExecutionOrder() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
         PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
+        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(),
+                new LongAdder(), this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
@@ -97,18 +102,19 @@ class PostDeliveryOrderTaskTest {
         mockServer.verify();
 
         //then
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success + 1);
+        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
+        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount);
+        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount + 1);
     }
 
     @Test
-    public void shouldFailExecutionOrder_BadRequest() throws URISyntaxException {
+    public void shouldFailExecutionOrder_BadRequest() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
         PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher, orderStub);
+        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(),
+                new LongAdder(), this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
@@ -120,18 +126,19 @@ class PostDeliveryOrderTaskTest {
         mockServer.verify();
 
         //then
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures + 1);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
+        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount + 1);
+        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
     }
 
     @Test
-    public void shouldRequestShutDownSigPill() throws URISyntaxException {
+    public void shouldRequestShutDownSigPill() throws ExecutionException, InterruptedException {
         //given
         PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus beforeExecution = dispatcher.totalOrders();
+        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher, DeliveryOrderRequest.ofSigPill());
+        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, DeliveryOrderRequest.ofSigPill(), new LongAdder(),
+                new LongAdder(), this.restTemplate);
 
         //when
         underTest.run();
@@ -139,8 +146,8 @@ class PostDeliveryOrderTaskTest {
         //verify
 
         //then
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = dispatcher.totalOrders();
-        Assertions.assertThat(actual.failures).isEqualTo(beforeExecution.failures);
-        Assertions.assertThat(actual.success).isEqualTo(beforeExecution.success);
+        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
+        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount);
+        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
     }
 }

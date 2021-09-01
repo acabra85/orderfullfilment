@@ -2,12 +2,13 @@ package com.acabra.orderfullfilment.orderserver.kitchen;
 
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 
-public interface KitchenService {
+public interface KitchenService extends OutputEventPublisher {
 
     /**
      * Assigns the current order to an internal cookId, this operation is reversible by calling @cancelCookReservation
@@ -30,12 +31,6 @@ public interface KitchenService {
      * @return a future handle to determine if the notification meal ready was published successfully.
      */
     CompletableFuture<Boolean> prepareMeal(long cookReservationId);
-
-    /**
-     * Register a queue for notification of meal ready for pickup
-     * @param queue a blocking queue
-     */
-    void registerMealNotificationReadyQueue(BlockingDeque<OutputEvent> queue);
 
     /**
      * Reports whether the kitchen is preparing meals or not

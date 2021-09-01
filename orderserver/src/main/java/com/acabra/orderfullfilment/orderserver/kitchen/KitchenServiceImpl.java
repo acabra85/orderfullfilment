@@ -83,7 +83,7 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public void registerMealNotificationReadyQueue(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
         this.mealReadyNotificationDeque.updateAndGet(oldValue -> deque);
     }
 

@@ -3,6 +3,7 @@ package com.acabra.orderfullfilment.orderproducer.dispatch;
 import com.acabra.orderfullfilment.orderproducer.TestUtils;
 import com.acabra.orderfullfilment.orderproducer.config.RestClientConfig;
 import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
+import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatus;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {RestClientConfig.class})
@@ -41,7 +42,8 @@ class PeriodicOrderDispatcherClientImplTest {
     }
 
     @Test
-    public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalled_thenReturnsSuccess() throws URISyntaxException, InterruptedException {
+    public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalled_thenReturnsSuccess() throws URISyntaxException,
+            InterruptedException, ExecutionException {
         //given
         List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
 
@@ -51,18 +53,18 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatchTwoOrdersPerSecond(orders);
+        underTest.dispatchOrdersWithFrequency(2, orders);
+        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
 
         //then
-        Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
-        Assertions.assertThat(actual.success).isEqualTo(orders.size());
-        Assertions.assertThat(actual.failures).isEqualTo(0);
+        Assertions.assertThat(actual.successCount).isEqualTo(orders.size());
+        Assertions.assertThat(actual.failureCount).isEqualTo(0);
     }
 
     @Test
-    public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalledWithSigPill_thenReturnsSuccess() throws URISyntaxException, InterruptedException {
+    public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalledWithSigPill_thenReturnsSuccess() throws URISyntaxException,
+            InterruptedException, ExecutionException {
         //given
         int expectedSuccessCalls = 3;
         int posSigPill = 3;
@@ -74,36 +76,35 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatchTwoOrdersPerSecond(orders);
+        underTest.dispatchOrdersWithFrequency(2, orders);
+        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
 
         //then
-        Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
-        Assertions.assertThat(actual.success).isEqualTo(expectedSuccessCalls);
-        Assertions.assertThat(actual.failures).isEqualTo(0);
+        Assertions.assertThat(actual.successCount).isEqualTo(expectedSuccessCalls);
+        Assertions.assertThat(actual.failureCount).isEqualTo(0);
     }
 
     @Test
-    public void givenDispatcherIsCompleted_whenRegisteringListenerHasNoEffects() throws URISyntaxException, InterruptedException {
+    public void givenDispatcherIsCompleted_whenRegisteringListenerHasNoEffects() throws InterruptedException,
+            ExecutionException {
         //given
         int expectedSuccessCalls = 0;
         int posSigPill = 0;
         List<DeliveryOrderRequest> orders = TestUtils.getOrdersWithSigPillAtPos(1, posSigPill);
 
         //when
-        underTest.dispatchTwoOrdersPerSecond(orders);
-        Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
+        underTest.dispatchOrdersWithFrequency(2, orders);
+        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
 
         //then
-        Assertions.assertThat(underTest.registerListener().getCount()).isEqualTo(0);
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
-        Assertions.assertThat(actual.success).isEqualTo(expectedSuccessCalls);
-        Assertions.assertThat(actual.failures).isEqualTo(0);
+        Assertions.assertThat(actual.successCount).isEqualTo(expectedSuccessCalls);
+        Assertions.assertThat(actual.failureCount).isEqualTo(0);
     }
 
     @Test
-    public void givenMockIsDoneByMockRestServiceServer_whenCallsFail_countsFailures() throws URISyntaxException, InterruptedException {
+    public void givenMockIsDoneByMockRestServiceServer_whenCallsFail_countsFailures() throws URISyntaxException,
+            ExecutionException, InterruptedException {
         //given
         List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
 
@@ -114,13 +115,12 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body(responseText));
 
         //when
-        underTest.dispatchTwoOrdersPerSecond(orders);
+        underTest.dispatchOrdersWithFrequency(2, orders);
+        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
 
         //then
-        Assertions.assertThat(underTest.registerListener().await(5, TimeUnit.SECONDS)).isTrue();
         mockServer.verify();
-        PeriodicOrderDispatcherClientImpl.OrderDispatcherStatus actual = underTest.totalOrders();
-        Assertions.assertThat(actual.success).isEqualTo(0);
-        Assertions.assertThat(actual.failures).isEqualTo(5);
+        Assertions.assertThat(actual.successCount).isEqualTo(0);
+        Assertions.assertThat(actual.failureCount).isEqualTo(5);
     }
 }

@@ -29,6 +29,13 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/acabra/**/ExcludedPOJO.class</exclude>
+                        <exclude>com/baeldung/**/*DTO.*</exclude>
+                        <exclude>**/config/*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>default-prepare-agent</id>
@@ -59,13 +66,18 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>90%</minimum>
+                                            <minimum>70%</minimum>
                                         </limit>
                                         <limit>
                                             <counter>CLASS</counter>
-                                            <value>MISSEDCOUNT</value>
-                                            <maximum>0</maximum>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>70%</minimum>
                                         </limit>
+<!--                                        <limit>-->
+<!--                                            <counter>CLASS</counter>-->
+<!--                                            <value>MISSEDCOUNT</value>-->
+<!--                                            <maximum>0</maximum>-->
+<!--                                        </limit>-->
                                     </limits>
                                 </rule>
                             </rules>

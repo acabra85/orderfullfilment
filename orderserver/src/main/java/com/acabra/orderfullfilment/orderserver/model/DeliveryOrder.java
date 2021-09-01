@@ -5,13 +5,13 @@ public class DeliveryOrder {
     public final String name;
     public final long prepTime;
 
-    public DeliveryOrder(String id, String name, int prepTime) {
+    private DeliveryOrder(String id, String name, long prepTime) {
         this.id = id;
         this.name = name;
         this.prepTime = prepTime * 1000L;
     }
 
-    public static DeliveryOrder of(String id, String name, int prepTime) {
+    public static DeliveryOrder of(String id, String name, long prepTime) {
         return new DeliveryOrder(id, name, prepTime);
     }
 

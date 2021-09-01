@@ -7,14 +7,14 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -24,47 +24,48 @@ public class OrderProcessorImpl implements OrderProcessor {
     private final CourierDispatchService courierService;
     private final KitchenService kitchenService;
     private final MetricsProcessor metricsProcessor;
-    private final BlockingDeque<OutputEvent> notificationDeque;
 
     public OrderProcessorImpl(OrderServerConfig orderServerConfig,
                               CourierDispatchService courierService,
                               KitchenService kitchenService,
-                              OrderRequestHandler orderHandler) {
-        final BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+                              @Qualifier("order_handler") OutputEventPublisher orderHandler, BlockingDeque<OutputEvent> deque) {
         startStartProcessorsList(orderServerConfig.getThreadCount(), deque);
-        this.notificationDeque = deque;
         this.metricsProcessor = new MetricsProcessor();
         this.courierService = courierService;
         this.courierService.registerNotificationDeque(deque);
         this.kitchenService = kitchenService;
-        this.kitchenService.registerMealNotificationReadyQueue(deque);
+        this.kitchenService.registerNotificationDeque(deque);
         orderHandler.registerNotificationDeque(deque);
     }
 
-    private List<OutputEventHandler> startStartProcessorsList(int threadCount, BlockingDeque<OutputEvent> deque) {
-        return IntStream.range(0,threadCount)
-                .mapToObj(i-> {
+    private void startStartProcessorsList(int threadCount, BlockingDeque<OutputEvent> deque) {
+        IntStream.range(0,threadCount)
+                .forEach(i-> {
                     OutputEventHandler outputEventHandler = new OutputEventHandler(i, deque);
                     CompletableFuture.runAsync(outputEventHandler::start);
-                    return outputEventHandler;
-                })
-                .collect(Collectors.toList());
+                });
+    }
+
+    @Bean
+    public static BlockingDeque<OutputEvent> buildNotificationDeque() {
+        return new LinkedBlockingDeque<>();
     }
 
     @Override
-    public void processOrder(final OrderReceivedEvent orderReceived) {
+    public CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         log.info("[EVENT] order received : {} at: {}" , orderReceived.order.id, KitchenClock.formatted(orderReceived.createdAt));
         DeliveryOrder order = orderReceived.order;
         CompletableFuture<Long> kitchenReservation = CompletableFuture.supplyAsync(() -> kitchenService.orderCookReservationId(order));
         CompletableFuture<Optional<Integer>> courierDispatch = kitchenReservation.thenApply(a -> courierService.dispatchRequest(order));
-
-        courierDispatch.thenAcceptBoth(kitchenReservation, (courierId, reservationId) -> {
+        return courierDispatch.thenCombineAsync(kitchenReservation, (courierId, reservationId) -> {
             if(courierId.isPresent()) {
                 log.info("[EVENT] courier dispatched: id[{}]", courierId.get());
                 kitchenService.prepareMeal(reservationId);
+                return true;
             } else {
                 log.info("No couriers available to deliver the order ... cancelling cooking reservation");
                 kitchenService.cancelCookReservation(reservationId);
+                return false;
             }
         });
     }
@@ -96,17 +97,8 @@ public class OrderProcessorImpl implements OrderProcessor {
 
     private void processOrderPickedUp(OrderPickedUpEvent orderPickedUpEvent) {
         recordMetrics(orderPickedUpEvent);
-
-        //note we are publishing a delivery note with the exact same time as the pickup time (instant delivery)
-        publishDeliveryEvent(OrderDeliveredEvent.of(orderPickedUpEvent));
-    }
-
-    private void publishDeliveryEvent(OrderDeliveredEvent orderDeliveredEvent) {
-        try {
-            this.notificationDeque.put(orderDeliveredEvent);
-        } catch (InterruptedException e) {
-            log.error("Failure to publish the delivery notification event ");
-        }
+        //emulate instant delivery TODO: [TRACKER-TICKET-SYSTEM-1235 implement real delivery]
+        this.dispatchOutputEvent(OrderDeliveredEvent.of(orderPickedUpEvent));
     }
 
     private void recordMetrics(OrderPickedUpEvent orderPickedUpEvent) {
@@ -122,7 +114,7 @@ public class OrderProcessorImpl implements OrderProcessor {
         private final BlockingDeque<OutputEvent> deque;
         volatile boolean end = false;
 
-        public OutputEventHandler(final int id, final BlockingDeque<OutputEvent> deque) {
+        private OutputEventHandler(final int id, final BlockingDeque<OutputEvent> deque) {
             super("OutputEventHandlerThread " + id);
             this.deque = deque;
         }
