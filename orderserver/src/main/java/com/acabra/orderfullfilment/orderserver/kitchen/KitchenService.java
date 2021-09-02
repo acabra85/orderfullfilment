@@ -1,11 +1,8 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
-import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CompletableFuture;
 
 public interface KitchenService extends OutputEventPublisher {
