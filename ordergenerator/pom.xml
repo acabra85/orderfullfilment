@@ -35,6 +35,14 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/acabra/orderfullfilment/**/*POJO.*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/*DTO.*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/OrderGeneratorApp.*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/config/*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>default-prepare-agent</id>

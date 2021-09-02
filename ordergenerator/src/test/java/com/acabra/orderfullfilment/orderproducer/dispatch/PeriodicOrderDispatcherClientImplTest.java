@@ -2,8 +2,8 @@ package com.acabra.orderfullfilment.orderproducer.dispatch;
 
 import com.acabra.orderfullfilment.orderproducer.TestUtils;
 import com.acabra.orderfullfilment.orderproducer.config.RestClientConfig;
-import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatus;
+import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequestDTO;
+import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatusPOJO;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ class PeriodicOrderDispatcherClientImplTest {
     public void givenMockIsDoneByMockRestServiceServer_whenGetIsCalled_thenReturnsSuccess() throws URISyntaxException,
             InterruptedException, ExecutionException {
         //given
-        List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
+        List<DeliveryOrderRequestDTO> orders = TestUtils.buildOrderListOfSize(5);
 
         mockServer.expect(ExpectedCount.times(orders.size()),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
@@ -53,8 +53,8 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatchOrdersWithFrequency(2, orders);
-        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
+        underTest.dispatchTwoOrdersPerSecond(orders);
+        OrderDispatcherStatusPOJO actual = underTest.getCompletionFuture().get();
 
         //then
         mockServer.verify();
@@ -68,7 +68,7 @@ class PeriodicOrderDispatcherClientImplTest {
         //given
         int expectedSuccessCalls = 3;
         int posSigPill = 3;
-        List<DeliveryOrderRequest> orders = TestUtils.getOrdersWithSigPillAtPos(5, posSigPill);
+        List<DeliveryOrderRequestDTO> orders = TestUtils.getOrdersWithSigPillAtPos(5, posSigPill);
 
         mockServer.expect(ExpectedCount.times(expectedSuccessCalls),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
@@ -76,8 +76,8 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.ACCEPTED));
 
         //when
-        underTest.dispatchOrdersWithFrequency(2, orders);
-        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
+        underTest.dispatchTwoOrdersPerSecond(orders);
+        OrderDispatcherStatusPOJO actual = underTest.getCompletionFuture().get();
 
         //then
         mockServer.verify();
@@ -91,11 +91,11 @@ class PeriodicOrderDispatcherClientImplTest {
         //given
         int expectedSuccessCalls = 0;
         int posSigPill = 0;
-        List<DeliveryOrderRequest> orders = TestUtils.getOrdersWithSigPillAtPos(1, posSigPill);
+        List<DeliveryOrderRequestDTO> orders = TestUtils.getOrdersWithSigPillAtPos(1, posSigPill);
 
         //when
-        underTest.dispatchOrdersWithFrequency(2, orders);
-        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
+        underTest.dispatchTwoOrdersPerSecond(orders);
+        OrderDispatcherStatusPOJO actual = underTest.getCompletionFuture().get();
 
         //then
         Assertions.assertThat(actual.successCount).isEqualTo(expectedSuccessCalls);
@@ -106,7 +106,7 @@ class PeriodicOrderDispatcherClientImplTest {
     public void givenMockIsDoneByMockRestServiceServer_whenCallsFail_countsFailures() throws URISyntaxException,
             ExecutionException, InterruptedException {
         //given
-        List<DeliveryOrderRequest> orders = TestUtils.buildOrderListOfSize(5);
+        List<DeliveryOrderRequestDTO> orders = TestUtils.buildOrderListOfSize(5);
 
         String responseText = "{\"message\": \"message\", \"body\":null}";
         mockServer.expect(ExpectedCount.times(orders.size()),
@@ -115,8 +115,8 @@ class PeriodicOrderDispatcherClientImplTest {
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body(responseText));
 
         //when
-        underTest.dispatchOrdersWithFrequency(2, orders);
-        OrderDispatcherStatus actual = underTest.getCompletionFuture().get();
+        underTest.dispatchTwoOrdersPerSecond(orders);
+        OrderDispatcherStatusPOJO actual = underTest.getCompletionFuture().get();
 
         //then
         mockServer.verify();

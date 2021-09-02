@@ -14,4 +14,11 @@ public class MetricsProcessor {
     public void acceptCourierWaitTime(long time) {
         courierWaitTimeStats.accept(time);
     }
+
+    public double getAvgCourierWaitTime() {
+        return courierWaitTimeStats.getAverage();
+    }
+    public double getAvgFoodWaitTime() {
+        return courierWaitTimeStats.getAverage();
+    }
 }

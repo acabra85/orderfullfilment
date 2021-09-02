@@ -31,9 +31,11 @@
                 <version>${jacoco.version}</version>
                 <configuration>
                     <excludes>
-                        <exclude>com/acabra/**/ExcludedPOJO.class</exclude>
-                        <exclude>com/baeldung/**/*DTO.*</exclude>
-                        <exclude>**/config/*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/*POJO.*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/*DTO.*</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/OrderServerApplication.class</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/Dishes.class</exclude>
+                        <exclude>com/acabra/orderfullfilment/**/config/*</exclude>
                     </excludes>
                 </configuration>
                 <executions>

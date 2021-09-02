@@ -5,24 +5,24 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties
-public class DeliveryOrderRequest {
+public class DeliveryOrderRequestDTO {
     public static final String SIG_PILL_ID = "SIG_PILL";
-    public final int prepTime;
+    public final long prepTime;
     public final String name;
     public final String id;
     public final boolean isSigPill;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public DeliveryOrderRequest(@JsonProperty("id") String id,
-                                @JsonProperty("name") String name,
-                                @JsonProperty("prepTime") int prepTime) {
+    public DeliveryOrderRequestDTO(@JsonProperty("id") String id,
+                                   @JsonProperty("name") String name,
+                                   @JsonProperty("prepTime") long prepTime) {
         this.prepTime = prepTime;
         this.name = name;
         this.id = id;
         this.isSigPill = SIG_PILL_ID.equals(id);
     }
 
-    public static DeliveryOrderRequest ofSigPill() {
-        return new DeliveryOrderRequest(SIG_PILL_ID, "", -1);
+    public static DeliveryOrderRequestDTO ofSigPill() {
+        return new DeliveryOrderRequestDTO(SIG_PILL_ID, "", -1);
     }
 }

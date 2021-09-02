@@ -1,10 +1,11 @@
 package com.acabra.orderfullfilment.orderproducer.dispatch;
 
 import com.acabra.orderfullfilment.orderproducer.config.RestClientConfig;
-import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatus;
+import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequestDTO;
+import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatusPOJO;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -29,26 +31,35 @@ import java.util.concurrent.atomic.LongAdder;
 @ContextConfiguration(classes = {RestClientConfig.class})
 class PostDeliveryOrderTaskTest {
 
-    private PostDeliveryOrderTask underTest;
-
     @Autowired
     private RestTemplate restTemplate;
-
+    private PeriodicOrderDispatcherClientImpl dispatcherMock;
     private MockRestServiceServer mockServer;
-    private final DeliveryOrderRequest orderStub = new DeliveryOrderRequest("1", "1", 1);
+    private final DeliveryOrderRequestDTO orderStub = new DeliveryOrderRequestDTO("1", "1", 1);
 
     @BeforeEach
     public void setup() {
+        this.dispatcherMock = Mockito.mock(PeriodicOrderDispatcherClientImpl.class);
         this.mockServer = MockRestServiceServer.createServer(this.restTemplate);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        Mockito.verifyNoMoreInteractions(this.dispatcherMock);
+        this.dispatcherMock = null;
+        this.mockServer = null;
     }
 
     @Test
     public void shouldFail_errorWithServer() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
-        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
+        Mockito.doNothing().when(dispatcherMock).reportWorkCompleted();
+        CompletableFuture<Void> shutDownRequested = new CompletableFuture<>();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(), new LongAdder(), this.restTemplate);
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
+        PostDeliveryOrderTask  underTest = new PostDeliveryOrderTask(() -> shutDownRequested.complete(null),
+                orderStub, successCount, failureCount, this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
@@ -56,98 +67,145 @@ class PostDeliveryOrderTaskTest {
                     throw new RuntimeException("error");
                 });
         //when
-        underTest.run();
+        CompletableFuture<Void> taskCompletedFuture = underTest.getTaskCompletedFuture();
+        CompletableFuture.runAsync(underTest);
+        taskCompletedFuture.get();
 
         //verify
         mockServer.verify();
+        Mockito.verifyNoInteractions(dispatcherMock);
 
         //then
-        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
-        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount + 1L);
-        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
+        Assertions.assertThat(shutDownRequested.isDone()).isTrue(); // abnormal completion, exception raised
+        Assertions.assertThat(successCount.sum()).isEqualTo(0);
+        Assertions.assertThat(failureCount.sum()).isEqualTo(1);
     }
 
     @Test
     public void shouldFailNullPointerException() {
         //given
-        DeliveryOrderRequest deliveryOrderRequest = null;
-        PeriodicOrderDispatcherClientImpl dispatcherMock = Mockito.mock(PeriodicOrderDispatcherClientImpl.class);
-
+        DeliveryOrderRequestDTO nullDeliveryRequest = null;
         //when
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
         ThrowableAssert.ThrowingCallable throwingCallable = () -> new PostDeliveryOrderTask(dispatcherMock::reportWorkCompleted,
-                deliveryOrderRequest, new LongAdder(), new LongAdder(), this.restTemplate);
+                nullDeliveryRequest, successCount, failureCount, this.restTemplate);
 
         //then
         Mockito.verifyNoInteractions(dispatcherMock);
         Assertions.assertThatThrownBy(throwingCallable)
                         .isExactlyInstanceOf(NullPointerException.class);
+        //verify
+        Mockito.verifyNoInteractions(dispatcherMock);
+        Assertions.assertThat(successCount.sum()).isEqualTo(0);
+        Assertions.assertThat(failureCount.sum()).isEqualTo(0);
     }
 
     @Test
-    public void shouldSucceedExecutionOrder() throws URISyntaxException, ExecutionException, InterruptedException {
+    public void shouldSucceedExecutionOrder_noSigPillEncountered() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
-        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
+        Mockito.doNothing().when(dispatcherMock).reportWorkCompleted();
+        CompletableFuture<Void> shutDownRequested = new CompletableFuture<>();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(),
-                new LongAdder(), this.restTemplate);
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
+        PostDeliveryOrderTask  underTest = new PostDeliveryOrderTask(() -> shutDownRequested.complete(null),
+                orderStub, successCount, failureCount, this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.CREATED));
         //when
-        underTest.run();
+        CompletableFuture<Void> taskCompletedFuture = underTest.getTaskCompletedFuture();
+        CompletableFuture.runAsync(underTest);
+        taskCompletedFuture.get();
 
         //verify
         mockServer.verify();
+        Mockito.verifyNoInteractions(dispatcherMock);
 
         //then
-        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
-        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount);
-        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount + 1);
+        Assertions.assertThat(shutDownRequested.isDone()).isFalse(); // normal completion, no sigpill encountered
     }
 
     @Test
-    public void shouldFailExecutionOrder_BadRequest() throws URISyntaxException, ExecutionException, InterruptedException {
+    public void shouldFailExecutionOrder_serverInternalError() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
-        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
+        Mockito.doNothing().when(dispatcherMock).reportWorkCompleted();
+        CompletableFuture<Void> shutDownRequested = new CompletableFuture<>();
 
-        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, orderStub, new LongAdder(),
-                new LongAdder(), this.restTemplate);
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
+        PostDeliveryOrderTask  underTest = new PostDeliveryOrderTask(() -> shutDownRequested.complete(null),
+                orderStub, successCount, failureCount, this.restTemplate);
         mockServer.expect(ExpectedCount.times(1),
                         MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
                 .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
-                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body(""));
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.INTERNAL_SERVER_ERROR).body(""));
+
         //when
-        underTest.run();
+        CompletableFuture<Void> taskCompletedFuture = underTest.getTaskCompletedFuture();
+        CompletableFuture.runAsync(underTest);
+        taskCompletedFuture.get();
 
         //verify
         mockServer.verify();
+        Mockito.verifyNoInteractions(dispatcherMock);
 
         //then
-        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
-        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount + 1);
-        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
+        Assertions.assertThat(shutDownRequested.isDone()).isTrue(); // abnormal completion, server internal error
+        Assertions.assertThat(successCount.sum()).isEqualTo(0);
+        Assertions.assertThat(failureCount.sum()).isEqualTo(1);
     }
 
     @Test
-    public void shouldRequestShutDownSigPill() throws ExecutionException, InterruptedException {
+    public void shouldCompleteExecutionOrder_badRequest() throws URISyntaxException, ExecutionException, InterruptedException {
         //given
-        PeriodicOrderDispatcherClientImpl dispatcher = new PeriodicOrderDispatcherClientImpl(this.restTemplate);
-        OrderDispatcherStatus beforeExecution = dispatcher.getCompletionFuture().get();
-
-        this.underTest = new PostDeliveryOrderTask(dispatcher::reportWorkCompleted, DeliveryOrderRequest.ofSigPill(), new LongAdder(),
-                new LongAdder(), this.restTemplate);
+        Mockito.doNothing().when(dispatcherMock).reportWorkCompleted();
+        CompletableFuture<Void> shutDownRequested = new CompletableFuture<>();
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
+        PostDeliveryOrderTask  underTest = new PostDeliveryOrderTask(() -> shutDownRequested.complete(null),
+                orderStub, successCount, failureCount, this.restTemplate);
+        mockServer.expect(ExpectedCount.times(1),
+                        MockRestRequestMatchers.requestTo(new URI(PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE)))
+                .andExpect(MockRestRequestMatchers.method(HttpMethod.POST))
+                .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST).body("{\"message\": \"something\"}"));
 
         //when
-        underTest.run();
+        CompletableFuture<Void> taskCompletedFuture = underTest.getTaskCompletedFuture();
+        CompletableFuture.runAsync(underTest);
+        taskCompletedFuture.get();
 
         //verify
+        mockServer.verify();
+        Mockito.verifyNoInteractions(dispatcherMock);
 
         //then
-        OrderDispatcherStatus actual = dispatcher.getCompletionFuture().get();
-        Assertions.assertThat(actual.failureCount).isEqualTo(beforeExecution.failureCount);
-        Assertions.assertThat(actual.successCount).isEqualTo(beforeExecution.successCount);
+        Assertions.assertThat(shutDownRequested.isDone()).isFalse(); // normal completion, bad request
+        Assertions.assertThat(successCount.sum()).isEqualTo(0);
+        Assertions.assertThat(failureCount.sum()).isEqualTo(1);
+    }
+
+    @Test
+    public void shouldCompleteRequest_sigPillGiven() throws ExecutionException, InterruptedException {
+        //given
+        CompletableFuture<Void> shutDownRequested = new CompletableFuture<>();
+        LongAdder successCount = new LongAdder();
+        LongAdder failureCount = new LongAdder();
+        PostDeliveryOrderTask  underTest = new PostDeliveryOrderTask(() -> shutDownRequested.complete(null),
+                DeliveryOrderRequestDTO.ofSigPill(), successCount, failureCount, this.restTemplate);
+
+        //when
+        CompletableFuture<Void> taskCompletedFuture = underTest.getTaskCompletedFuture();
+        CompletableFuture.runAsync(underTest);
+        taskCompletedFuture.get();
+
+        Mockito.verifyNoInteractions(dispatcherMock);
+
+        //then
+        Assertions.assertThat(shutDownRequested.isDone()).isTrue(); // abnormal completion, sig pill
+        Assertions.assertThat(successCount.sum()).isEqualTo(0);
+        Assertions.assertThat(failureCount.sum()).isEqualTo(0);
     }
 }

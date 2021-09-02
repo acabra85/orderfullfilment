@@ -1,7 +1,7 @@
 package com.acabra.orderfullfilment.orderproducer.dispatch;
 
-import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatus;
+import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequestDTO;
+import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatusPOJO;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ public class CommandLineRunnerImpl implements CommandLineRunner {
     public static final String SMALL_ORDERS_JSON = "small-orders.json";
     public static final String LARGE_ORDERS_JSON = "orders.json";
     private final PeriodicOrderDispatcherClient dispatcher;
-    private ResourceLoader resourceLoader;
+    private final ResourceLoader resourceLoader;
 
     public CommandLineRunnerImpl(PeriodicOrderDispatcherClient dispatcher, ResourceLoader resourceLoader) {
         this.dispatcher = dispatcher;
@@ -34,17 +34,17 @@ public class CommandLineRunnerImpl implements CommandLineRunner {
     public void run(String... args) throws Exception {
         log.info("Starting CLI ...");
         String param = args != null && args.length > 0 ? args[0] : null;
-        List<DeliveryOrderRequest> orders = readOrdersFromFile(param);
-        dispatcher.dispatchOrdersWithFrequency(2, orders);
-        OrderDispatcherStatus orderDispatchStatus = dispatcher.getCompletionFuture().get();
+        List<DeliveryOrderRequestDTO> orders = readOrdersFromFile(param);
+        dispatcher.dispatchTwoOrdersPerSecond(orders);
+        OrderDispatcherStatusPOJO orderDispatchStatus = dispatcher.getCompletionFuture().get();
         log.info("Success: [{}], Failures: [{}]", orderDispatchStatus.successCount, orderDispatchStatus.failureCount);
         log.info("Finishing CLI ...");
     }
 
-    private List<DeliveryOrderRequest> readOrdersFromFile(String arg) {
+    private List<DeliveryOrderRequestDTO> readOrdersFromFile(String arg) {
         try {
             InputStream src = retrieveInputStream(arg);
-            ArrayList<DeliveryOrderRequest> orders = new ObjectMapper().readValue(src, new TypeReference<>() {
+            ArrayList<DeliveryOrderRequestDTO> orders = new ObjectMapper().readValue(src, new TypeReference<>() {
             });
             log.info("{} orders loaded from file!!", orders.size());
             return orders;
@@ -54,7 +54,7 @@ public class CommandLineRunnerImpl implements CommandLineRunner {
         Random r = new Random();
         return new ArrayList<>() {{
             IntStream.range(0, 61)
-                    .forEach(id -> add(new DeliveryOrderRequest(UUID.randomUUID().toString(), "n" + id, r.nextInt(6))));
+                    .forEach(id -> add(new DeliveryOrderRequestDTO(UUID.randomUUID().toString(), "n" + id, r.nextInt(6))));
         }};
     }
 
