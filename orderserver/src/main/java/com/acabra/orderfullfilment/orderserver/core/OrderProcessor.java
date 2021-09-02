@@ -76,6 +76,7 @@ public class OrderProcessor implements Extinguishable {
         });
     }
 
+    @Override
     public void shutDown() {
         log.info("[METRICS] Avg. Food Wait Time: {}ms, Avg Courier Wait Time {}ms",
                 this.metricsProcessor.getAvgFoodWaitTime(), this.metricsProcessor.getAvgCourierWaitTime());
