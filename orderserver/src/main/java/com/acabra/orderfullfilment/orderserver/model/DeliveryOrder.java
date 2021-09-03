@@ -1,11 +1,15 @@
 package com.acabra.orderfullfilment.orderserver.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class DeliveryOrder {
     public final String id;
     public final String name;
     public final long prepTime;
 
-    private DeliveryOrder(String id, String name, long prepTime) {
+    private DeliveryOrder(@JsonProperty("id") String id,
+                          @JsonProperty("name") String name,
+                          @JsonProperty("prepTime") long prepTime) {
         this.id = id;
         this.name = name;
         this.prepTime = prepTime * 1000L;

@@ -1,6 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.utils;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
+import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,9 +35,10 @@ class EtaEstimatorTest {
         final LongSummaryStatistics stats = new LongSummaryStatistics();
         int expectedLowerBound = 3;
         int expectedUpperBound = 15;
+        Courier courier = Courier.ofAvailable(1, "Peter");
 
         //when
-        IntStream.range(0, 10000).forEach(i -> stats.accept(underTest.estimateCourierTravelTime()));
+        IntStream.range(0, 10000).forEach(i -> stats.accept(underTest.estimateCourierTravelTimeInSeconds(courier)));
 
         //then
         Assertions.assertThat(stats.getMin()).isEqualTo(expectedLowerBound);

@@ -42,6 +42,6 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
 
     @Override
     public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
-        this.ordersReceivedPublicationDeque.updateAndGet(oldValue -> deque);
+        this.ordersReceivedPublicationDeque.set(deque);
     }
 }

@@ -29,7 +29,7 @@
             </activation>
         </profile>
         <profile>
-            <id>integration-test</id>
+            <id>integ</id>
             <properties>
                 <skip.integration.tests>false</skip.integration.tests>
                 <skip.unit.tests>true</skip.unit.tests>

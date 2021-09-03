@@ -69,8 +69,9 @@ public class CourierFleetImpl implements CourierFleet {
         Courier courier = retrieveCourier();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
-            int eta = etaEstimator.estimateCourierTravelTime();
-            return DispatchResult.of(courier.id, this.schedule(eta, courier.id));
+            int eta = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
+            CompletableFuture<Boolean> schedule = this.schedule(eta, courier.id);
+            return DispatchResult.of(courier.id, schedule);
         }
         return DispatchResult.notDispatched();
     }
@@ -85,7 +86,7 @@ public class CourierFleetImpl implements CourierFleet {
         courier.orderDelivered();
         this.dispatchedCouriers.put(courierId, null);
         this.availableCouriers.add(courier);
-        log.debug("Courier {} is available ... {} ", courierId, this.availableCouriers.size());
+        log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 
     private CompletableFuture<Boolean> schedule(long timeToDestination, int courierId) {
@@ -118,6 +119,6 @@ public class CourierFleetImpl implements CourierFleet {
 
     @Override
     public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
-        courierAvailableNotificationDeque.updateAndGet(oldValue -> deque);
+        courierAvailableNotificationDeque.set(deque);
     }
 }

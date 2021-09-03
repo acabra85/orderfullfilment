@@ -2,7 +2,7 @@ package com.acabra.orderfullfilment.orderserver.core;
 
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
-import com.acabra.orderfullfilment.orderserver.courier.fifo.CourierDispatchFIFOServiceImpl;
+import com.acabra.orderfullfilment.orderserver.courier.CourierServiceImpl;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
@@ -42,7 +42,7 @@ class OrderProcessorTest {
     @BeforeEach
     public void setup() {
         underTest = null;
-        courierServiceMock = Mockito.mock(CourierDispatchFIFOServiceImpl.class);
+        courierServiceMock = Mockito.mock(CourierServiceImpl.class);
         kitchenServiceMock = Mockito.mock(KitchenServiceImpl.class);
         outputEventPublisherMock = Mockito.mock(OrderRequestHandler.class);
     }
@@ -64,7 +64,7 @@ class OrderProcessorTest {
 
         //#setup courier
         Mockito.doNothing().when(courierServiceMock).registerNotificationDeque(deque);
-        Mockito.when(courierServiceMock.processMealReady(orderPreparedEventStub))
+        Mockito.when(courierServiceMock.processOrderPrepared(orderPreparedEventStub))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         //#setup kitchen
@@ -76,13 +76,13 @@ class OrderProcessorTest {
         //when
         deque.put(orderPreparedEventStub); //send the event on the queue for processing
         awaitTermination().await();
-        underTest.shutDown();
+        underTest.close();
 
         //then
 
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
-        Mockito.verify(courierServiceMock, Mockito.times(1)).processMealReady(orderPreparedEventStub);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).processOrderPrepared(orderPreparedEventStub);
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
         Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
     }
@@ -116,7 +116,7 @@ class OrderProcessorTest {
         //when
         deque.put(orderReceivedEvent);
         awaitTermination().await();
-        underTest.shutDown();
+        underTest.close();
 
         //then
 
@@ -157,7 +157,7 @@ class OrderProcessorTest {
         //when
         deque.put(orderReceivedEvent);
         awaitTermination().await();
-        underTest.shutDown();
+        underTest.close();
         //then
 
         //verify mocks
@@ -192,7 +192,7 @@ class OrderProcessorTest {
         deque.put(orderPickedUpEventStub);
 
         awaitTermination().await();
-        underTest.shutDown();
+        underTest.close();
         //then
 
         //verify mocks
