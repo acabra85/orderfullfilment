@@ -161,7 +161,7 @@ public class OrderProcessor implements Closeable {
 
     @Override
     public void close() {
-        if(! this.noMoreOrdersMonitor.isTerminated()) {return;}
+        if(this.noMoreOrdersMonitor.isTerminated()) {return;}
 
         reportAverageMetrics();
         this.noMoreOrdersMonitor.shutdownNow();
