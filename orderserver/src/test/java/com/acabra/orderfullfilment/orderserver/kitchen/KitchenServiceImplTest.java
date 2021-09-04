@@ -9,16 +9,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 class KitchenServiceImplTest {
 
     private KitchenService underTest;
     private final DeliveryOrder deliveryStub = DeliveryOrder.of("id-order-stub", "banana-split", 3);
-    private BlockingDeque<OutputEvent> mockDeque = Mockito.mock(LinkedBlockingDeque.class);
+    private Deque<OutputEvent> mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
 
     @BeforeEach
     void setUp() {

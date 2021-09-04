@@ -6,8 +6,9 @@ import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Deque;
 import java.util.NoSuchElementException;
-import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.LongAdder;
 public class KitchenServiceImpl implements KitchenService {
     final AtomicLong cookingOrderId;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
-    private final AtomicReference<BlockingDeque<OutputEvent>> publicNotificationDeque;
+    private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque;
     private final LongAdder mealsUnderPreparation;
 
     public KitchenServiceImpl() {
@@ -82,7 +83,7 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(Deque<OutputEvent> deque) {
         this.publicNotificationDeque.set(deque);
     }
 

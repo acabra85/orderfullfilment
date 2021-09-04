@@ -46,7 +46,8 @@ public class StrategyFIFOIntegrationTest {
     public void mustAssignOrdersFirstComeFirstServe() throws IOException, InterruptedException {
         // given
         ArrayList<Courier> couriers = readCouriersFromFileTestFile();
-        List<DeliveryOrderRequestDTO> orders = List.of(new DeliveryOrderRequestDTO("order-od", "banan", 2));//readOrdersFromTestFile();
+//        List<DeliveryOrderRequestDTO> orders = List.of(new DeliveryOrderRequestDTO("order-od", "banan", 2));
+        List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile();
 
         //we want to control exactly how long the travel time to the kitchen will take for every courier
         HashMap<String, Integer> travelTimesSeconds = new HashMap<>() {{
@@ -62,10 +63,13 @@ public class StrategyFIFOIntegrationTest {
         Iterator<DeliveryOrderRequestDTO> ordersIterator = orders.iterator();
 
         //when
-        submitTheOrdersAtARateOf2PerSecond(orderHandler, ordersIterator);
-        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> 1,
-                CompletableFuture.delayedExecutor(30, TimeUnit.SECONDS));
-        while (!future.isDone()) {
+        ScheduledExecutorService scheduledExecutorService = submitTheOrdersAtARateOf2PerSecond(orderHandler, ordersIterator);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    processor.close();
+                },
+                CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS));
+        ;
+        while (!scheduledExecutorService.isTerminated()) {
             Thread.sleep(3000);
         }
 
@@ -81,7 +85,7 @@ public class StrategyFIFOIntegrationTest {
     }
 
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock, OrderRequestHandler orderHandler) {
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock);
         OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherFIFOImpl();
         CourierDispatchService courierService = new CourierServiceImpl(courierFleet, orderCourierMatcher);
@@ -101,7 +105,8 @@ public class StrategyFIFOIntegrationTest {
         return estimatorMock;
     }
 
-    private void submitTheOrdersAtARateOf2PerSecond(OrderRequestHandler orderHandler, Iterator<DeliveryOrderRequestDTO> ordersIterator) {
+    private ScheduledExecutorService submitTheOrdersAtARateOf2PerSecond(OrderRequestHandler orderHandler,
+                                                                        Iterator<DeliveryOrderRequestDTO> ordersIterator) {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(() -> {
             if(!ordersIterator.hasNext()) {
@@ -110,6 +115,7 @@ public class StrategyFIFOIntegrationTest {
                 orderHandler.accept(ordersIterator.next());
             }
         },0, 500L, TimeUnit.MILLISECONDS);
+        return executorService;
     }
 
     private InputStream getInputStream(String resourceAsStr) throws IOException {

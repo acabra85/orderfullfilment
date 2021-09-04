@@ -9,9 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings("DuplicatedCode")
@@ -20,12 +20,12 @@ import java.util.concurrent.atomic.AtomicReference;
 @ConditionalOnProperty(prefix = "orderserver", name = "strategy", havingValue = "fifo")
 public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
 
-    private final BlockingDeque<OrderPreparedEvent> mealsPrepared = new LinkedBlockingDeque<>();
-    private final BlockingDeque<CourierArrivedEvent> couriersArrived = new LinkedBlockingDeque<>();
-    private final AtomicReference<BlockingDeque<OutputEvent>> publicNotificationDeque = new AtomicReference<>();
+    private final Deque<OrderPreparedEvent> mealsPrepared = new ConcurrentLinkedDeque<>();
+    private final Deque<CourierArrivedEvent> couriersArrived = new ConcurrentLinkedDeque<>();
+    private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque = new AtomicReference<>();
 
     @Override
-    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(Deque<OutputEvent> deque) {
         this.publicNotificationDeque.set(deque);
     }
 

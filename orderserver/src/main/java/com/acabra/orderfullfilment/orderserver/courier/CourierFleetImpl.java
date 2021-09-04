@@ -27,7 +27,7 @@ public class CourierFleetImpl implements CourierFleet {
     private final ConcurrentLinkedDeque<Courier> availableCouriers;
 
     private final AtomicInteger totalCouriers;
-    private final AtomicReference<BlockingDeque<OutputEvent>> courierAvailableNotificationDeque;
+    private final AtomicReference<Deque<OutputEvent>> courierAvailableNotificationDeque;
     private final EtaEstimator etaEstimator;
 
     public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator) {
@@ -103,7 +103,7 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(Deque<OutputEvent> deque) {
         courierAvailableNotificationDeque.set(deque);
     }
 }

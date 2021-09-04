@@ -14,10 +14,10 @@ import org.mockito.Mockito;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -137,18 +137,11 @@ class CourierFleetImplTest {
     public void mustReportArrivalNotificationAfterSuccessfulDispatch() throws InterruptedException, ExecutionException {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
         underTest.registerNotificationDeque(deque);
         int expectedCourierId = 0;
-        CompletableFuture<OutputEvent> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                return deque.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            return null;
-        });
+        CompletableFuture<OutputEvent> future = CompletableFuture.supplyAsync(() -> deque.poll());
 
         //when
         Integer actualCourierId = underTest.dispatch(validOrder).courierId;
@@ -168,7 +161,7 @@ class CourierFleetImplTest {
     public void mustFailCourierNotification_exceptionThrownWhileReporting() throws InterruptedException {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
-        BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
+        Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
@@ -194,7 +187,7 @@ class CourierFleetImplTest {
     public void mustCompleteNotificationAsFalse_interruptedExceptionThrown() throws InterruptedException, ExecutionException {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
-        BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
+        Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
         underTest = new CourierFleetImpl(list, etaEstimatorMock);

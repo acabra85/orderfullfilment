@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
@@ -31,7 +32,7 @@ public class OrderProcessor implements Closeable {
     private final CourierDispatchService courierService;
     private final KitchenService kitchenService;
     private final MetricsProcessor metricsProcessor;
-    private final BlockingDeque<OutputEvent> deque;
+    private final Deque<OutputEvent> deque;
     private final List<OutputEventHandler> eventConsumers;
     private final ExecutorService noMoreOrdersMonitor;
     private final LongAdder activeOrders = new LongAdder();
@@ -40,7 +41,7 @@ public class OrderProcessor implements Closeable {
                           CourierDispatchService courierService,
                           KitchenService kitchenService,
                           @Qualifier("order_handler") OutputEventPublisher orderHandler,
-                          BlockingDeque<OutputEvent> deque) {
+                          Deque<OutputEvent> deque) {
         this.metricsProcessor = new MetricsProcessor();
         this.deque = deque;
         this.eventConsumers = startOutputEventProcessors(orderServerConfig.getThreadCount(), deque);
@@ -67,7 +68,7 @@ public class OrderProcessor implements Closeable {
         return executorService;
     }
 
-    private List<OutputEventHandler> startOutputEventProcessors(int threadCount, BlockingDeque<OutputEvent> deque) {
+    private List<OutputEventHandler> startOutputEventProcessors(int threadCount,Deque<OutputEvent> deque) {
         List<OutputEventHandler> tasks = IntStream.range(0, threadCount)
                 .mapToObj(i -> new OutputEventHandler(i, deque))
                 .collect(Collectors.toList());
@@ -76,8 +77,8 @@ public class OrderProcessor implements Closeable {
     }
 
     @Bean
-    public static BlockingDeque<OutputEvent> buildNotificationDeque() {
-        return new LinkedBlockingDeque<>();
+    public static Deque<OutputEvent> buildNotificationDeque() {
+        return new ConcurrentLinkedDeque<>();
     }
 
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
@@ -169,18 +170,18 @@ public class OrderProcessor implements Closeable {
         IntStream.range(0, eventConsumers.size())
             .forEach(i -> {
                 try {
-                    deque.putLast(sigPill);
-                } catch (InterruptedException e) {
+                     deque.offer(sigPill);
+                } catch (Exception e) {
                     log.error("unable to signal termination to thread: {}", e.getMessage(), e);
                 }
         });
     }
 
     private class OutputEventHandler extends Thread {
-        private final BlockingDeque<OutputEvent> deque;
+        private final Deque<OutputEvent> deque;
         private volatile boolean finish;
 
-        private OutputEventHandler(final int id, final BlockingDeque<OutputEvent> deque) {
+        private OutputEventHandler(final int id, final Deque<OutputEvent> deque) {
             super("OutputEventHandlerThread " + id);
             this.deque = deque;
         }

@@ -6,8 +6,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.LongAdder;
 
 @Service
@@ -29,7 +33,7 @@ public class PeriodicOrderDispatcherClientImpl implements PeriodicOrderDispatche
 
     @Override
     public void dispatchTwoOrdersPerSecond(final List<DeliveryOrderRequestDTO> orders) {
-        BlockingQueue<DeliveryOrderRequestDTO> deque = new LinkedBlockingDeque<>(orders);
+        Deque<DeliveryOrderRequestDTO> deque = new ConcurrentLinkedDeque<>(orders);
         CompletableFuture.runAsync(() -> {
             try {
                 while(!shutDownRequested) {

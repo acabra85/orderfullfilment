@@ -1,16 +1,15 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcher;
+import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.Deque;
 import java.util.Optional;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CourierServiceImpl implements CourierDispatchService {
 
     private final CourierFleet courierFleet;
-    private final AtomicReference<BlockingQueue<OutputEvent>> publicNotificationQueue;
+    private final AtomicReference<Deque<OutputEvent>> publicNotificationQueue;
     private final OrderCourierMatcher orderCourierMatcher;
 
     @Autowired
@@ -40,10 +39,10 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     private void publishCourierDispatchedNotification(DeliveryOrder order, Integer courierId) {
-        BlockingQueue<OutputEvent> deque = this.publicNotificationQueue.get();
+        Deque<OutputEvent> deque = this.publicNotificationQueue.get();
         if(null != deque) {
             try {
-                deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId));
+                 deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId));
             } catch (Exception e) {
                 log.error("Unable to publish courier dispatched event: {}", e.getMessage(), e);
             }
@@ -69,7 +68,7 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(Deque<OutputEvent> deque) {
         this.publicNotificationQueue.set(deque);
         this.orderCourierMatcher.registerNotificationDeque(deque);
         this.courierFleet.registerNotificationDeque(deque);

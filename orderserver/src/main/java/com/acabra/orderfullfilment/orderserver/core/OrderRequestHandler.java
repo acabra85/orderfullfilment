@@ -9,7 +9,7 @@ import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class OrderRequestHandler implements OutputEventPublisher, Consumer<DeliveryOrderRequestDTO> {
 
-    private final AtomicReference<BlockingDeque<OutputEvent>> ordersReceivedPublicationDeque = new AtomicReference<>();
+    private final AtomicReference<Deque<OutputEvent>> ordersReceivedPublicationDeque = new AtomicReference<>();
 
     @Override
     public void accept(DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
@@ -41,7 +41,7 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
     }
 
     @Override
-    public void registerNotificationDeque(BlockingDeque<OutputEvent> deque) {
+    public void registerNotificationDeque(Deque<OutputEvent> deque) {
         this.ordersReceivedPublicationDeque.set(deque);
     }
 }

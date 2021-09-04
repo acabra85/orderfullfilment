@@ -9,8 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.Deque;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 
 class OrderRequestHandlerTest {
@@ -28,12 +29,12 @@ class OrderRequestHandlerTest {
     @Test
     void mustRegisterAndPublish() throws InterruptedException {
         //given
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest.registerNotificationDeque(deque);
         underTest.accept(requestStub);
 
         //when
-        OrderReceivedEvent actual = (OrderReceivedEvent) deque.take();
+        OrderReceivedEvent actual = (OrderReceivedEvent) deque.poll();
 
         //then
         Assertions.assertThat(actual.order).isEqualTo(orderStub);
@@ -42,19 +43,21 @@ class OrderRequestHandlerTest {
     @Test
     void mustFailToPublish_givenNoDequeRegistered() throws InterruptedException {
         //given
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
 
         //when
         underTest.accept(requestStub);
 
+        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(() -> deque.poll(),
+                CompletableFuture.delayedExecutor(200L, TimeUnit.MILLISECONDS));
         //then
-        Assertions.assertThat(deque.poll(200L, TimeUnit.MILLISECONDS)).isNull();
+        Assertions.assertThat(actual.join()).isNull();
     }
 
     @Test
     void mustFailToPublish_givenDequeReportsException() throws InterruptedException {
         //given
-        BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
+        Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(dequeMock);
 
@@ -69,13 +72,15 @@ class OrderRequestHandlerTest {
     void mustNotPublishEvent_givenDeliveryRequestInvalid() throws InterruptedException {
         //given
         DeliveryOrderRequestDTO invalid = new DeliveryOrderRequestDTO("", "", -1);
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest.registerNotificationDeque(deque);
 
         //when
         underTest.accept(invalid);
 
+        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(() -> deque.poll(),
+                CompletableFuture.delayedExecutor(200L, TimeUnit.MILLISECONDS));
         //then
-        Assertions.assertThat(deque.poll(200L, TimeUnit.MILLISECONDS)).isNull();
+        Assertions.assertThat(actual.join()).isNull();
     }
 }

@@ -18,8 +18,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.util.Deque;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 
 @ExtendWith(SpringExtension.class)
@@ -58,7 +60,7 @@ class OrderProcessorTest {
     @Test
     void mustProcessOrderPreparedEvent() throws InterruptedException {
         //given
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
         OrderPreparedEvent orderPreparedEventStub = OrderPreparedEvent.of(1, bananaSplitOrder.id, 1000);
 
@@ -75,8 +77,11 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
-        awaitTermination().await();
+        CompletableFuture<Void> future = awaitTermination(2000L);
         underTest.close();
+        while (!future.isDone()) {
+            Thread.sleep(4000);
+        }
 
         //then
 
@@ -92,7 +97,7 @@ class OrderProcessorTest {
         //given
         Integer courierId = 1;
         long cookReservationId = 0L;
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
         OrderReceivedEvent orderReceivedEvent = OrderReceivedEvent.of(5, bananaSplitOrder);
 
@@ -115,8 +120,11 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderReceivedEvent);
-        awaitTermination().await();
+        CompletableFuture<Void> future = awaitTermination(2000L);
         underTest.close();
+        while (!future.isDone()) {
+            Thread.sleep(4000);
+        }
 
         //then
 
@@ -133,7 +141,7 @@ class OrderProcessorTest {
     void mustProcessOrderReceivedEvent_givenThatNoCouriersAvailableAndKitchenAcceptsReservation() throws InterruptedException {
         //given
         long cookReservationId = 0L;
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
         OrderReceivedEvent orderReceivedEvent = OrderReceivedEvent.of(5, bananaSplitOrder);
 
@@ -156,8 +164,11 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderReceivedEvent);
-        awaitTermination().await();
+        CompletableFuture<Void> future = awaitTermination(2000L);
         underTest.close();
+        while (!future.isDone()) {
+            Thread.sleep(4000);
+        }
         //then
 
         //verify mocks
@@ -174,7 +185,7 @@ class OrderProcessorTest {
         //given
         int courierId = 1;
         long cookReservationId = 0L;
-        BlockingDeque<OutputEvent> deque = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
         OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent
                 .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L), 9800L, cookReservationId);
@@ -191,27 +202,30 @@ class OrderProcessorTest {
         //when
         deque.offer(orderPickedUpEventStub);
 
-        awaitTermination().await();
-        underTest.close();
         //then
+        CompletableFuture<Void> future = awaitTermination(2000L);
+        underTest.close();
+        while (!future.isDone()) {
+            Thread.sleep(4000);
+        }
 
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).processOrderDelivered(Mockito.any(OrderDeliveredEvent.class));
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
         Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
     }
 
-    private CountDownLatch awaitTermination() {
-        CountDownLatch lock = new CountDownLatch(1);
-        CompletableFuture.runAsync(() -> {
+    private CompletableFuture<Void> awaitTermination(long millis) {
+        CompletableFuture<Void> completableFuture = CompletableFuture.supplyAsync(() -> {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(millis);
+                return null;
             } catch (InterruptedException e) {
                 Assertions.fail("");
-            } finally {
-                lock.countDown();
             }
+            return null;
         });
-        return lock;
+        return completableFuture;
     }
 }

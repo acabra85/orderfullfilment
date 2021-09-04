@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Deque;
 import java.util.concurrent.*;
 
 class OrderCourierMatcherFIFOImplTest {
@@ -20,16 +21,15 @@ class OrderCourierMatcherFIFOImplTest {
     @Test
     public void mustMatchMealAndCourier_givenCourierArrivesAndNoMealsAwaiting() throws ExecutionException, InterruptedException {
         //given
-        BlockingDeque<OutputEvent> queue = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> queue = new ConcurrentLinkedDeque<>();
         underTest.registerNotificationDeque(queue);
+
         CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return queue.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            return null;
-        });
+                while (queue.peek() == null) {
+                }
+                return queue.poll();
+                }, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
+
         CompletableFuture.runAsync(() -> underTest.acceptMealPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80)),
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
@@ -45,16 +45,13 @@ class OrderCourierMatcherFIFOImplTest {
     @Test
     public void mustMatchOrderAndCourier_givenOrderPreparedNoCouriersWaiting() throws ExecutionException, InterruptedException {
         //given
-        BlockingDeque<OutputEvent> queue = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> queue = new ConcurrentLinkedDeque<>();
         underTest.registerNotificationDeque(queue);
         CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return queue.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            while (queue.peek() == null) {
             }
-            return null;
-        });
+            return queue.poll();
+        }, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
         CompletableFuture.runAsync(() ->
                         underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101)),
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
@@ -71,15 +68,12 @@ class OrderCourierMatcherFIFOImplTest {
     @Test
     public void mustReturnNull_publicNotificationQueueNotRegistered() {
         //given
-        BlockingDeque<OutputEvent> queue = new LinkedBlockingDeque<>();
+        Deque<OutputEvent> queue = new ConcurrentLinkedDeque<>();
         CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return queue.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            while (queue.peek() == null) {
             }
-            return null;
-        });
+            return queue.poll();
+        }, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
         CompletableFuture.runAsync(() ->
                         underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101)),
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
@@ -95,17 +89,11 @@ class OrderCourierMatcherFIFOImplTest {
     @Test
     public void mustReturnNull_exceptionThrownWhilePublishing() throws InterruptedException {
         //given
-        BlockingDeque<OutputEvent> queueMock = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(queueMock).offer(Mockito.any(OutputEvent.class));
+        Deque<OutputEvent> queueMock = Mockito.mock(ConcurrentLinkedDeque.class);
+        Mockito.doThrow(RuntimeException.class).when(queueMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(queueMock);
-        CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
-            try {
-                return queueMock.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            return null;
-        });
+        CompletableFuture<OutputEvent> completionFuture = CompletableFuture
+                .supplyAsync(() -> queueMock.poll(), CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
         CompletableFuture.runAsync(() ->
                 underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101)),
             CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));

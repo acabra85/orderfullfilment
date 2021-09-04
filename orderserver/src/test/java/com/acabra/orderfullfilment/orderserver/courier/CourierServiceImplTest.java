@@ -14,12 +14,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Deque;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 class CourierServiceImplTest {
 
@@ -29,13 +30,13 @@ class CourierServiceImplTest {
 
     private CourierFleet fleetMock;
     private OrderCourierMatcher orderCourierMatcherMock;
-    private LinkedBlockingDeque<OutputEvent> mockDeque;
+    private Deque<OutputEvent> mockDeque;
 
     @BeforeEach
     public void setup() {
         fleetMock = Mockito.mock(CourierFleetImpl.class);
         orderCourierMatcherMock = Mockito.mock(OrderCourierMatcherFIFOImpl.class);
-        mockDeque = Mockito.mock(LinkedBlockingDeque.class);
+        mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
         underTest = new CourierServiceImpl(fleetMock, orderCourierMatcherMock);
     }
 
