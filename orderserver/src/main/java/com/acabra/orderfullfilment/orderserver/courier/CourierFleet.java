@@ -1,6 +1,5 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;

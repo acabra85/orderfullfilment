@@ -1,11 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.control;
 
-import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
-import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderserver.dto.SimpleResponse;
-import com.acabra.orderfullfilment.orderserver.dto.SimpleResponseImpl;
+import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,7 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 @RestController
 @RequestMapping(value = "/orders",
@@ -22,15 +19,26 @@ import java.util.Optional;
 @Slf4j
 public class OrderController {
 
-    private final OrderProcessor orderProcessor;
+    private final Consumer<DeliveryOrderRequestDTO> orderRequestHandler;
 
-    public OrderController(OrderProcessor orderService) {
-        this.orderProcessor = orderService;
+    public OrderController(Consumer<DeliveryOrderRequestDTO> handler) {
+        this.orderRequestHandler = handler;
     }
 
     @PostMapping
-    public ResponseEntity<SimpleResponse<String>> acceptOrder(@RequestBody DeliveryOrderRequest deliveryOrderRequest) {
-        orderProcessor.processOrder(deliveryOrderRequest);
-        return ResponseEntity.of(Optional.of(new SimpleResponseImpl<>(HttpStatus.OK.value(), "order accepted", null)));
+    public ResponseEntity<String> acceptOrder(@RequestBody DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
+        if (valid(deliveryOrderRequestDTO)) {
+            CompletableFuture.runAsync(() -> this.orderRequestHandler.accept(deliveryOrderRequestDTO));
+            return ResponseEntity.accepted().build();
+        }
+        return ResponseEntity.badRequest()
+                .body("invalid request, prepTime must be >= 0: , id and name must not be null or empty"
+                        + deliveryOrderRequestDTO.prepTime);
+    }
+
+    private boolean valid(DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
+        return deliveryOrderRequestDTO.prepTime >= 0
+                && null != deliveryOrderRequestDTO.id && !deliveryOrderRequestDTO.id.isBlank()
+                && null != deliveryOrderRequestDTO.name && !deliveryOrderRequestDTO.name.isBlank();
     }
 }

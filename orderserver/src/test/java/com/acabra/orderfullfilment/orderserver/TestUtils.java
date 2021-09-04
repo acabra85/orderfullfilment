@@ -1,7 +1,8 @@
 package com.acabra.orderfullfilment.orderserver;
 
-import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequest;
+import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
 import com.acabra.orderfullfilment.orderserver.model.Dishes;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,9 +21,10 @@ public class TestUtils {
     private static final Logger logger = LoggerFactory.getLogger(TestUtils.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
+    @Test
     public void generateDayOrders() {
         logger.info("Generating random daily orders ....");
-        Stream.Builder<DeliveryOrderRequest> orderStreamBuilder = Stream.builder();
+        Stream.Builder<DeliveryOrderRequestDTO> orderStreamBuilder = Stream.builder();
         AtomicInteger orderProcessedCount = new AtomicInteger(0);
         int TOTAL_ORDERS = SECONDS_IN_WORKING_DAY * 2;
         logger.info("Total orders to be created: {}", TOTAL_ORDERS);
@@ -63,8 +65,8 @@ public class TestUtils {
         logger.info("Success orders created: {}",orderProcessedCount.get());
     }
 
-    private DeliveryOrderRequest buildDish() {
+    private DeliveryOrderRequestDTO buildDish() {
         Dishes dish = Dishes.getRandomDish();
-        return new DeliveryOrderRequest(UUID.randomUUID().toString(), dish.description, dish.prepTime);
+        return new DeliveryOrderRequestDTO(UUID.randomUUID().toString(), dish.description, dish.prepTime);
     }
 }

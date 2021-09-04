@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
@@ -39,7 +40,7 @@ public class Courier {
         if(CourierStatus.DISPATCHED == this.status.get()) {
             throw new IllegalStateException("Courier is already dispatched");
         }
-        this.status.updateAndGet(available -> CourierStatus.DISPATCHED);
+        this.status.set(CourierStatus.DISPATCHED);
     }
 
     public void orderDelivered() {
@@ -47,8 +48,8 @@ public class Courier {
         if(CourierStatus.AVAILABLE == this.status.get()) {
             throw new IllegalStateException("Courier is already available");
         }
-        this.status.updateAndGet(oldStatus -> CourierStatus.AVAILABLE);
-        log.info("Courier {} is now available", id);
+        this.status.set(CourierStatus.AVAILABLE);
+        log.debug("Courier {} is now available", id);
     }
 
     public boolean isAvailable() {
@@ -59,4 +60,16 @@ public class Courier {
         return this.status.get();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Courier courier = (Courier) o;
+        return id.equals(courier.id) && name.equals(courier.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);
+    }
 }

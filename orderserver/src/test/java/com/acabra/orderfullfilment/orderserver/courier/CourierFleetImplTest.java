@@ -23,15 +23,16 @@ import java.util.stream.IntStream;
 
 class CourierFleetImplTest {
 
+    public static final Courier ANY_COURIER = Mockito.any(Courier.class);
     private CourierFleet underTest;
 
-    private final DeliveryOrder validOrder = new DeliveryOrder("order-it-test", 2131231, 3131221);
+    private final DeliveryOrder validOrder = DeliveryOrder.of("order-it-test", "my-meal", 3131221);
     private final EtaEstimator etaEstimatorMock = Mockito.mock(EtaEstimator.class);
 
     @BeforeEach
     public void setup() {
         int fixedTravelTime = 3;
-        Mockito.when(etaEstimatorMock.estimateCourierTravelTime()).thenReturn(fixedTravelTime);
+        Mockito.doReturn(fixedTravelTime).when(etaEstimatorMock).estimateCourierTravelTimeInSeconds(ANY_COURIER);
     }
 
     @Test
@@ -46,7 +47,7 @@ class CourierFleetImplTest {
         Integer actual = underTest.dispatch(validOrder).courierId;
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Assertions.assertThat(underTest).isNotNull();
         Assertions.assertThat(actual).isNull();
         Assertions.assertThat(underTest.fleetSize()).isEqualTo(list.size());
@@ -65,7 +66,7 @@ class CourierFleetImplTest {
         Integer actual = underTest.dispatch(validOrder).courierId;
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Assertions.assertThat(underTest).isNotNull();
         Assertions.assertThat(actual).isEqualTo(0);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(totalAvailableBefore - 1);
@@ -92,7 +93,7 @@ class CourierFleetImplTest {
                 .collect(Collectors.toList());
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(expectedSize)).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.times(expectedSize)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Assertions.assertThat(dispatched.size()).isEqualTo(expectedSize);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
         Assertions.assertThat(underTest.fleetSize()).isEqualTo(availableCouriers.size());
@@ -109,7 +110,7 @@ class CourierFleetImplTest {
         //when
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Assertions.assertThatExceptionOfType(NoSuchElementException.class)
                 .isThrownBy(() -> underTest.release(courierIdInvalid))
                 .withMessageContaining("does not correspond to an assigned courier");
@@ -154,7 +155,7 @@ class CourierFleetImplTest {
         CourierArrivedEvent actualEvent = (CourierArrivedEvent) future.get();
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
         Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
 
@@ -184,7 +185,7 @@ class CourierFleetImplTest {
         Assertions.assertThatThrownBy(actualDispatchResult.notificationFuture::get)
                 .isInstanceOf(ExecutionException.class)
                 .hasMessageContaining("RuntimeException");
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Mockito.verify(dequeMock, Mockito.times(1)).put(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
@@ -208,7 +209,7 @@ class CourierFleetImplTest {
         //then
         Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
         Assertions.assertThat(actualDispatchResult.notificationFuture.get()).isFalse();
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTime();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
         Mockito.verify(dequeMock, Mockito.times(1)).put(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }

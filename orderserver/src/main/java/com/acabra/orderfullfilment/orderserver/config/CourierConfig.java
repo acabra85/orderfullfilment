@@ -10,13 +10,13 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class CourierConfig {
 
-    @NonNull
-    @Value("${courier.min-eta}")
-    private Integer minEta;
+    private final Integer minEta;
+    private final Integer maxEta;
 
-    @NonNull
-    @Value("${courier.max-eta}")
-    private Integer maxEta;
+    public CourierConfig(@NonNull @Value("${courier.min-eta}")Integer minEta, @NonNull @Value("${courier.max-eta}")Integer maxEta) {
+        this.minEta = minEta;
+        this.maxEta = maxEta;
+    }
 
     @NonNull
     public Integer getMinEta() {

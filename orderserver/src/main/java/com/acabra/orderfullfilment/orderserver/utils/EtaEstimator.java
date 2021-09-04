@@ -1,6 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.utils;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
+import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
@@ -17,7 +18,7 @@ public class EtaEstimator {
         this.floorEta = config.getMinEta();
     }
 
-    public int estimateCourierTravelTime() {
+    public int estimateCourierTravelTimeInSeconds(Courier courier) {
         return Math.abs(floorEta + etaGenerate.nextInt(ceilingEta));
     }
 

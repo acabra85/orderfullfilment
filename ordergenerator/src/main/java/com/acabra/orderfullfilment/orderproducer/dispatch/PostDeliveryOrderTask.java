@@ -1,55 +1,70 @@
 package com.acabra.orderfullfilment.orderproducer.dispatch;
 
-import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequest;
-import com.acabra.orderfullfilment.orderproducer.dto.SimpleResponse;
+import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequestDTO;
+import com.acabra.orderfullfilment.orderproducer.dto.SimpleResponseDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.http.*;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.Iterator;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.LongAdder;
 
-import static com.acabra.orderfullfilment.orderproducer.dispatch.OrderDispatcher.ORDERS_RESOURCE;
+import static com.acabra.orderfullfilment.orderproducer.dispatch.PeriodicOrderDispatcherClientImpl.ORDERS_RESOURCE;
 
 @Slf4j
 public class PostDeliveryOrderTask implements Runnable {
     private static final HttpHeaders HEADERS = new HttpHeaders() {{setContentType(MediaType.APPLICATION_JSON);}};
-    static final int TOTAL_ORDERS_PER_SECOND = 2;
 
-    private final OrderDispatcher parent;
-    private final Iterator<DeliveryOrderRequest> iterator;
+    private final Runnable reportCompletedState;
+    private final DeliveryOrderRequestDTO order;
+    private final LongAdder successCount;
+    private final LongAdder failureCount;
+    private RestTemplate restTemplate;
+    private final CompletableFuture<Void> taskCompletedFuture;
 
-    public PostDeliveryOrderTask(OrderDispatcher parent, Iterator<DeliveryOrderRequest> iterator) {
-        this.parent = parent;
-        this.iterator = iterator;
+    public PostDeliveryOrderTask(Runnable reportCompletionState, DeliveryOrderRequestDTO deliveryOrderRequestDTO,
+                                 LongAdder successCount, LongAdder failureCount, RestTemplate restTemplate) {
+        this.reportCompletedState = reportCompletionState;
+        this.order = Objects.requireNonNull(deliveryOrderRequestDTO);
+        this.successCount = successCount;
+        this.failureCount = failureCount;
+        this.restTemplate = restTemplate;
+        this.taskCompletedFuture = new CompletableFuture<>();
     }
 
     @Override public void run() {
         boolean finish = false;
-        for (int i = 0; i < TOTAL_ORDERS_PER_SECOND && iterator.hasNext() && !finish; i++) {
-            try {
-                DeliveryOrderRequest order = iterator.next();
-                if (!DeliveryOrderRequest.SIG_PILL_ID.equals(order.id)) {
-                    HttpEntity<DeliveryOrderRequest> request = new HttpEntity<>(order, HEADERS);
-                    ResponseEntity<SimpleResponse> response = parent.getRestTemplate().postForEntity(ORDERS_RESOURCE, request, SimpleResponse.class);
-                    if (HttpStatus.OK == response.getStatusCode()) {
-                        parent.incrementOrderSuccesses();
-                    } else {
-                        parent.incrementOrderFailures();
-                    }
-                } else {
-                    finish = true;
-                }
-            } catch (Exception e) {
-                parent.incrementOrderFailures();
-                log.error(e.getMessage());
-                log.error(ExceptionUtils.getRootCause(e).getMessage());
-                log.error("Halting order production");
+        try {
+            if (!DeliveryOrderRequestDTO.SIG_PILL_ID.equals(order.id)) {
+                sendHttpRequest(order);
+            } else {
                 finish = true;
             }
+        } catch (Exception e) {
+            failureCount.increment();
+            log.error("Halting order production {} {}", e.getMessage(), ExceptionUtils.getRootCause(e).getMessage());
+            finish = true;
         }
-        if (!iterator.hasNext() || finish) {
-            parent.reportWorkCompleted();
+        if (finish) {
+            reportCompletedState.run();
+        }
+        this.taskCompletedFuture.complete(null);
+    }
+
+    private void sendHttpRequest(DeliveryOrderRequestDTO order) {
+        HttpEntity<DeliveryOrderRequestDTO> request = new HttpEntity<>(order, HEADERS);
+        ResponseEntity<SimpleResponseDTO> response = restTemplate.postForEntity(ORDERS_RESOURCE, request, SimpleResponseDTO.class);
+        if (HttpStatus.Series.SUCCESSFUL == response.getStatusCode().series()) {
+            successCount.increment();
+        } else {
+            log.info("Order was not accepted: " + Objects.requireNonNull(response.getBody()).getMessage());
+            failureCount.increment();
         }
     }
 
+    public CompletableFuture<Void> getTaskCompletedFuture() {
+        return taskCompletedFuture;
+    }
 }
