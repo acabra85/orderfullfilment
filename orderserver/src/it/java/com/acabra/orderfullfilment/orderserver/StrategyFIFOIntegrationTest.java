@@ -46,7 +46,7 @@ public class StrategyFIFOIntegrationTest {
     public void mustAssignOrdersFirstComeFirstServe() throws IOException, InterruptedException {
         // given
         ArrayList<Courier> couriers = readCouriersFromFileTestFile();
-        List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile();
+        List<DeliveryOrderRequestDTO> orders = List.of(new DeliveryOrderRequestDTO("order-od", "banan", 2));//readOrdersFromTestFile();
 
         //we want to control exactly how long the travel time to the kitchen will take for every courier
         HashMap<String, Integer> travelTimesSeconds = new HashMap<>() {{

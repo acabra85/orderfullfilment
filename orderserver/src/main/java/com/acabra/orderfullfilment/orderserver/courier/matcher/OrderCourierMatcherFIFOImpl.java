@@ -30,50 +30,38 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     }
 
     @Override
-    synchronized public boolean acceptMealPreparedEvent(OrderPreparedEvent mealPrepared) {
+    public boolean acceptMealPreparedEvent(OrderPreparedEvent orderPreparedEvt) {
         try {
-            mealsPrepared.putLast(mealPrepared);
-            CompletableFuture.runAsync(new Runnable() {
-                final OrderPreparedEvent event = mealPrepared;
-
-                @Override
-                public void run() {
-                    CourierArrivedEvent take = couriersArrived.poll();
-                    if (take != null) {
-                        publishedOrderPickedUpEvent(take, event);
-                    }
-                }
-            });
+            CourierArrivedEvent courierEvt = couriersArrived.poll();
+            if (null != courierEvt) {
+                publishedOrderPickedUpEvent(courierEvt, orderPreparedEvt);
+            } else {
+                mealsPrepared.offer(orderPreparedEvt);
+            }
             return true;
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             log.error("Unable to handle the mealPrepared event: {}", e.getMessage(), e);
         }
         return false;
     }
 
     @Override
-    synchronized public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierArrivedEvent) {
+    public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierArrivedEvent) {
         try {
-            couriersArrived.putLast(courierArrivedEvent);
-            CompletableFuture.runAsync(new Runnable() {
-                final CourierArrivedEvent event = courierArrivedEvent;
-
-                @Override
-                public void run() {
-                    OrderPreparedEvent take = mealsPrepared.poll();
-                    if (take != null) {
-                        publishedOrderPickedUpEvent(event, take);
-                    }
-                }
-            });
+            OrderPreparedEvent orderPreparedEvt = mealsPrepared.poll();
+            if (null != orderPreparedEvt) {
+                publishedOrderPickedUpEvent(courierArrivedEvent, orderPreparedEvt);
+            } else {
+                couriersArrived.offer(courierArrivedEvent);
+            }
             return true;
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             log.error("Unable to handle the mealPrepared event: {}", e.getMessage(), e);
         }
         return false;
     }
 
-    synchronized private void publishedOrderPickedUpEvent(CourierArrivedEvent courierArrivedEvent,
+    private void publishedOrderPickedUpEvent(CourierArrivedEvent courierArrivedEvent,
                                              OrderPreparedEvent orderPreparedEvent) {
         try {
             long now = KitchenClock.now();
@@ -82,7 +70,7 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
             log.info("[EVENT] order picked up: orderId[{}] courierId[{}] at {}",
                     orderPreparedEvent.deliveryOrderId, orderPickedUpEvent.courierId,
                     KitchenClock.formatted(orderPickedUpEvent.createdAt));
-            this.publicNotificationDeque.get().put(orderPickedUpEvent);
+            this.publicNotificationDeque.get().offer(orderPickedUpEvent);
         } catch (Exception e) {
             log.error("Unable to publish result to notification queue {}", e.getMessage(), e);
         }

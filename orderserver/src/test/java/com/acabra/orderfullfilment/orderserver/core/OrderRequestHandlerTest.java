@@ -55,14 +55,14 @@ class OrderRequestHandlerTest {
     void mustFailToPublish_givenDequeReportsException() throws InterruptedException {
         //given
         BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(dequeMock).put(Mockito.any(OutputEvent.class));
+        Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(dequeMock);
 
         //when
         underTest.accept(requestStub);
 
         //then
-        Mockito.verify(dequeMock, Mockito.times(1)).put(Mockito.any(OutputEvent.class));
+        Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(OutputEvent.class));
     }
 
     @Test

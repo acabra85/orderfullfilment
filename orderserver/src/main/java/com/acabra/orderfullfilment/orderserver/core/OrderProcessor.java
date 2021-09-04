@@ -59,7 +59,7 @@ public class OrderProcessor implements Closeable {
         executorService.scheduleAtFixedRate(() -> {
             boolean allBlocked = this.eventConsumers.stream().allMatch(t -> Thread.State.BLOCKED == t.getState());
             long sum = activeOrders.sum();
-            log.debug("{} orders awaiting delivery", sum);
+            log.debug("[SYSTEM] {} orders awaiting delivery", sum);
             if(allBlocked && sum == 0) { // all received work completed
                 this.deque.offer(NO_PENDING_ORDERS);
             }
@@ -80,11 +80,11 @@ public class OrderProcessor implements Closeable {
         return new LinkedBlockingDeque<>();
     }
 
-    private void processOrder(final OrderReceivedEvent orderReceived) {
+    private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
-        CompletableFuture<Long> kitchenReservation = CompletableFuture.supplyAsync(() -> kitchenService.orderCookReservationId(order));
-        CompletableFuture<Optional<Integer>> courierDispatch = kitchenReservation.thenApplyAsync(a -> courierService.dispatchRequest(order));
-        courierDispatch.thenCombineAsync(kitchenReservation, (courierId, reservationId) -> {
+        final Long reservationId = kitchenService.orderCookReservationId(order);
+        CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture.supplyAsync(() -> courierService.dispatchRequest(order));
+        return courierDispatch.thenApply(courierId -> {
             if(courierId.isPresent()) {
                 kitchenService.prepareMeal(reservationId);
                 return true;
@@ -104,7 +104,7 @@ public class OrderProcessor implements Closeable {
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
                 log.info("[EVENT] order received : {} at: {}" , orderReceivedEvent.order.id,
                         KitchenClock.formatted(orderReceivedEvent.createdAt));
-                processOrder(orderReceivedEvent);
+                processOrder(orderReceivedEvent).join();
                 break;
             case COURIER_DISPATCHED:
                 CourierDispatchedEvent courierDispatchedEvent = (CourierDispatchedEvent) outputEvent;
@@ -190,12 +190,15 @@ public class OrderProcessor implements Closeable {
             log.debug("{} started", this);
             try {
                 while(!finish) {
-                    OutputEvent take = deque.take();
-                    if(take.type == EventType.SHUT_DOWN_REQUEST) {
-                        finish = true;
-                        break;
+                    OutputEvent take = deque.poll();
+                    if(take != null) {
+                        if(take.type == EventType.SHUT_DOWN_REQUEST) {
+                            finish = true;
+                            break;
+                        }
+                        dispatchOutputEvent(take);
                     }
-                    dispatchOutputEvent(take);
+                    Thread.sleep(400L);
                 }
             } catch (InterruptedException e) {
                 log.error("Monitor interrupted thread failed!!" + e.getMessage(), e);

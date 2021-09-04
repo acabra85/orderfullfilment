@@ -33,9 +33,9 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
     private void publishOrderReceivedEvent(OrderReceivedEvent order) {
         if(null != this.ordersReceivedPublicationDeque.get()) {
             try {
-                this.ordersReceivedPublicationDeque.get().put(order);
-            } catch (InterruptedException e) {
-                log.error("Unable to publish order received event");
+                this.ordersReceivedPublicationDeque.get().offer(order);
+            } catch (Exception e) {
+                log.error("Unable to publish order received event: {}", e.getMessage(), e);
             }
         }
     }

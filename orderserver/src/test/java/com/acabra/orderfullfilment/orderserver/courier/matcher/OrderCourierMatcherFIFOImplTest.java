@@ -96,7 +96,7 @@ class OrderCourierMatcherFIFOImplTest {
     public void mustReturnNull_exceptionThrownWhilePublishing() throws InterruptedException {
         //given
         BlockingDeque<OutputEvent> queueMock = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(queueMock).put(Mockito.any(OutputEvent.class));
+        Mockito.doThrow(InterruptedException.class).when(queueMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(queueMock);
         CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
             try {

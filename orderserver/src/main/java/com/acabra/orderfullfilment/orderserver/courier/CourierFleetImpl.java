@@ -11,9 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collector;
@@ -26,28 +24,15 @@ public class CourierFleetImpl implements CourierFleet {
     private static final Collector<Courier, ?, ArrayDeque<Courier>> DEQUE_COLLECTOR = Collectors.toCollection(ArrayDeque::new);
 
     private final Map<Integer, Courier> dispatchedCouriers;
-    private final Deque<Courier> availableCouriers;
+    private final ConcurrentLinkedDeque<Courier> availableCouriers;
 
     private final AtomicInteger totalCouriers;
     private final AtomicReference<BlockingDeque<OutputEvent>> courierAvailableNotificationDeque;
     private final EtaEstimator etaEstimator;
 
-    private Courier findFirstAvailable() {
-        if(availableCouriers.isEmpty()) throw new NoSuchElementException("No Available couriers");
-        return availableCouriers.remove();
-    }
-
-    private Courier retrieveCourier() {
-        Courier courier = null;
-        if (availableCouriers.size() > 0) {
-            courier = findFirstAvailable();
-            courier.dispatch();
-        }
-        return courier;
-    }
-
     public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator) {
-        this.availableCouriers = couriers.stream().filter(Courier::isAvailable).collect(DEQUE_COLLECTOR);
+        this.availableCouriers = new ConcurrentLinkedDeque<>(couriers.stream()
+                .filter(Courier::isAvailable).collect(DEQUE_COLLECTOR));
         this.dispatchedCouriers = buildDispatchedMap(couriers);
         this.totalCouriers = new AtomicInteger(couriers.size());
         this.courierAvailableNotificationDeque = new AtomicReference<>();
@@ -55,18 +40,18 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
-        return this.availableCouriers.size() != couriers.size() ?
+        return new ConcurrentHashMap(this.availableCouriers.size() != couriers.size() ?
                 couriers.stream()
                         .filter(c -> !c.isAvailable())
                         .map(c-> Map.entry(c.id, c))
                         .collect(
                             Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-                : new HashMap<>();
+                : new HashMap<>());
     }
 
     @Override
-    synchronized public DispatchResult dispatch(DeliveryOrder order) {
-        Courier courier = retrieveCourier();
+    public DispatchResult dispatch(DeliveryOrder order) {
+        Courier courier = availableCouriers.poll();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
             int eta = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
@@ -77,7 +62,7 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    synchronized public void release(Integer courierId) throws NoSuchElementException {
+    public void release(Integer courierId) throws NoSuchElementException {
         Courier courier = this.dispatchedCouriers.get(courierId);
         if(null == courier) {
             String error = String.format("The given id [%d] does not correspond to an assigned courier", courierId);
@@ -97,11 +82,11 @@ public class CourierFleetImpl implements CourierFleet {
                             KitchenClock.formatted(pickupEvent.createdAt));
                     try {
                         if(courierAvailableNotificationDeque.get() != null) {
-                            courierAvailableNotificationDeque.get().put(pickupEvent);
+                            courierAvailableNotificationDeque.get().offer(pickupEvent);
                             return true;
                         }
-                    } catch (InterruptedException e) {
-                        log.error("Failed to publish the notification");
+                    } catch (Exception e) {
+                        log.error("Failed to publish the notification: {}", e.getMessage(), e);
                     }
                     return false;
                 }, CompletableFuture.delayedExecutor(timeToDestination, TimeUnit.SECONDS));

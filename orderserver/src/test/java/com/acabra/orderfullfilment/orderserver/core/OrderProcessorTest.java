@@ -74,7 +74,7 @@ class OrderProcessorTest {
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
         //when
-        deque.put(orderPreparedEventStub); //send the event on the queue for processing
+        deque.offer(orderPreparedEventStub); //send the event on the queue for processing
         awaitTermination().await();
         underTest.close();
 
@@ -114,7 +114,7 @@ class OrderProcessorTest {
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
         //when
-        deque.put(orderReceivedEvent);
+        deque.offer(orderReceivedEvent);
         awaitTermination().await();
         underTest.close();
 
@@ -155,7 +155,7 @@ class OrderProcessorTest {
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
         //when
-        deque.put(orderReceivedEvent);
+        deque.offer(orderReceivedEvent);
         awaitTermination().await();
         underTest.close();
         //then
@@ -189,7 +189,7 @@ class OrderProcessorTest {
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
         //when
-        deque.put(orderPickedUpEventStub);
+        deque.offer(orderPickedUpEventStub);
 
         awaitTermination().await();
         underTest.close();

@@ -43,9 +43,9 @@ public class CourierServiceImpl implements CourierDispatchService {
         BlockingQueue<OutputEvent> deque = this.publicNotificationQueue.get();
         if(null != deque) {
             try {
-                deque.put(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId));
-            } catch (InterruptedException e) {
-                log.error("Unable to publish courier dispatched event");
+                deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId));
+            } catch (Exception e) {
+                log.error("Unable to publish courier dispatched event: {}", e.getMessage(), e);
             }
         }
     }

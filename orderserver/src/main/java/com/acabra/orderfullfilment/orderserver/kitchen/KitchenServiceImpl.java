@@ -30,7 +30,7 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    synchronized public CompletableFuture<Boolean> prepareMeal(long mealOrderId) {
+    public CompletableFuture<Boolean> prepareMeal(long mealOrderId) {
         DeliveryOrder order = internalIdToOrder.get(mealOrderId);
         if(order != null) {
             mealsUnderPreparation.increment();
@@ -44,8 +44,7 @@ public class KitchenServiceImpl implements KitchenService {
 
     private CompletableFuture<Boolean> schedule(Chef chef) {
         CompletableFuture<OrderPreparedEvent> mealReadyFuture = chef.prepareMeal();
-        CompletableFuture<Boolean> publishedFuture = mealReadyFuture
-                .thenApply(this::publishEventOrderReadyForPickup);
+        CompletableFuture<Boolean> publishedFuture = mealReadyFuture.thenApply(this::publishEventOrderReadyForPickup);
         publishedFuture.handleAsync((ev, ex) -> {
             log.debug("Kitchen's result of publishing meal ready event: {}", ev);
             mealsUnderPreparation.decrement();
@@ -60,17 +59,17 @@ public class KitchenServiceImpl implements KitchenService {
     private boolean publishEventOrderReadyForPickup(OrderPreparedEvent readyForPickup) {
         try {
             if(null != this.publicNotificationDeque.get()) {
-                this.publicNotificationDeque.get().put(readyForPickup);
+                this.publicNotificationDeque.get().offer(readyForPickup);
                 return true;
             }
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             log.error("Unable to notify food ready for pickup: {} ", e.getMessage(), e);
         }
         return false;
     }
 
     @Override
-    synchronized public long orderCookReservationId(DeliveryOrder order) {
+    public long orderCookReservationId(DeliveryOrder order) {
         long mealOrderId = cookingOrderId.getAndIncrement();
         internalIdToOrder.put(mealOrderId, order);
         log.debug("Id requested for meal order: {} given: {}", order.id, mealOrderId);

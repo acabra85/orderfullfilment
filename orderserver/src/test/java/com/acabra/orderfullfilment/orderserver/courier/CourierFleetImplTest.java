@@ -169,7 +169,7 @@ class CourierFleetImplTest {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(RuntimeException.class).when(dequeMock).put(Mockito.any(CourierArrivedEvent.class));
+        Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
         underTest.registerNotificationDeque(dequeMock);
@@ -186,7 +186,7 @@ class CourierFleetImplTest {
                 .isInstanceOf(ExecutionException.class)
                 .hasMessageContaining("RuntimeException");
         Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
-        Mockito.verify(dequeMock, Mockito.times(1)).put(Mockito.any(CourierArrivedEvent.class));
+        Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
 
@@ -195,7 +195,7 @@ class CourierFleetImplTest {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         BlockingDeque<OutputEvent> dequeMock = Mockito.mock(LinkedBlockingDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(dequeMock).put(Mockito.any(CourierArrivedEvent.class));
+        Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
         underTest.registerNotificationDeque(dequeMock);
@@ -210,7 +210,7 @@ class CourierFleetImplTest {
         Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
         Assertions.assertThat(actualDispatchResult.notificationFuture.get()).isFalse();
         Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
-        Mockito.verify(dequeMock, Mockito.times(1)).put(Mockito.any(CourierArrivedEvent.class));
+        Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
 
