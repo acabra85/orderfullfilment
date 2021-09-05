@@ -9,13 +9,19 @@ public class OrderServerConfig {
     private final int threadCount;
     private final String strategy;
     private final int periodShutDownMonitor;
+    private final long pollingTimeMillis;
+    private final int pollingMaxRetries;
 
     public OrderServerConfig(@Value("${orderserver.thread-count}") int threadCount,
                              @Value("${orderserver.strategy}") String strategy,
-                             @Value("${orderserver.period-shut-down-monitor}") int periodShutDownMonitor) {
+                             @Value("${orderserver.period-shut-down-monitor-millis}") int periodShutDownMonitor,
+                             @Value("${orderserver.polling-max-retries}") int pollingMaxRetries,
+                             @Value("${orderserver.polling-time-millis}") long pollingTimeMillis) {
         this.threadCount = Math.min(Math.max(threadCount, 1), Runtime.getRuntime().availableProcessors());
         this.strategy = strategy;
         this.periodShutDownMonitor = periodShutDownMonitor;
+        this.pollingTimeMillis = Math.min(Math.max(0, pollingTimeMillis), 4000L);
+        this.pollingMaxRetries = Math.min(Math.max(0, pollingMaxRetries), 10);
     }
 
     public int getThreadCount() {
@@ -26,7 +32,15 @@ public class OrderServerConfig {
         return strategy;
     }
 
-    public int getPeriodShutDownMonitor() {
+    public int getPeriodShutDownMonitorSeconds() {
         return periodShutDownMonitor;
+    }
+
+    public long getPollingTimeMillis() {
+        return this.pollingTimeMillis;
+    }
+
+    public int getPollingMaxRetries() {
+        return pollingMaxRetries;
     }
 }

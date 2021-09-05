@@ -67,9 +67,6 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
             long now = KitchenClock.now();
             OrderPickedUpEvent orderPickedUpEvent = OrderPickedUpEvent.of(now, courierArrivedEvent,
                     orderPreparedEvent.createdAt, orderPreparedEvent.mealOrderId);
-            log.info("[EVENT] order picked up: orderId[{}] courierId[{}] at {}",
-                    orderPreparedEvent.deliveryOrderId, orderPickedUpEvent.courierId,
-                    KitchenClock.formatted(orderPickedUpEvent.createdAt));
             this.publicNotificationDeque.get().offer(orderPickedUpEvent);
         } catch (Exception e) {
             log.error("Unable to publish result to notification queue {}", e.getMessage(), e);

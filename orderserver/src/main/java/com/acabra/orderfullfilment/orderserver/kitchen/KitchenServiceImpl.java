@@ -3,6 +3,7 @@ package com.acabra.orderfullfilment.orderserver.kitchen;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +19,7 @@ import java.util.concurrent.atomic.LongAdder;
 @Service
 @Slf4j
 public class KitchenServiceImpl implements KitchenService {
-    final AtomicLong cookingOrderId;
+    private final AtomicLong cookingOrderId;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
     private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque;
     private final LongAdder mealsUnderPreparation;
@@ -36,8 +37,7 @@ public class KitchenServiceImpl implements KitchenService {
         if(order != null) {
             mealsUnderPreparation.increment();
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            Chef chef = Chef.of(mealOrderId, order);
-            return schedule(chef);
+            return schedule(Chef.of(mealOrderId, order));
         }
         String template = "Unable to find the given cookReservationId id[%d]";
         return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, mealOrderId)));
@@ -90,5 +90,27 @@ public class KitchenServiceImpl implements KitchenService {
     @Override
     public boolean isKitchenIdle() {
         return this.mealsUnderPreparation.sum() == 0L;
+    }
+
+    private static class Chef {
+        private final long mealOrderId;
+        private final DeliveryOrder order;
+
+        private Chef(long mealReservationId, DeliveryOrder order) {
+            this.mealOrderId = mealReservationId;
+            this.order = order;
+        }
+
+        private static Chef of(long mealOrderId, DeliveryOrder order) {
+            return new Chef(mealOrderId, order);
+        }
+
+        private CompletableFuture<OrderPreparedEvent> prepareMeal() {
+            return CompletableFuture.supplyAsync(() -> {
+                        long now = KitchenClock.now();
+                        return OrderPreparedEvent.of(this.mealOrderId, this.order.id, now);
+                    },
+                    CompletableFuture.delayedExecutor(order.prepTime, TimeUnit.MILLISECONDS));
+        }
     }
 }

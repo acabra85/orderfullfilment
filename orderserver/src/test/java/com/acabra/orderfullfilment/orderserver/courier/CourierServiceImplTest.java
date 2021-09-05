@@ -65,7 +65,7 @@ class CourierServiceImplTest {
     @Test
     void mustReturnCourierIdAvailableCourier() {
         //given
-        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.ofCompleted(5));
+        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.ofCompleted(5, 1));
 
         //when
         Optional<Integer> actual = underTest.dispatchRequest(null);

@@ -127,6 +127,7 @@ class OrderProcessorTest {
         }
 
         //then
+        Assertions.assertThat(underTest.getMetricsSnapshot().totalOrdersReceived).isEqualTo(1);
 
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);

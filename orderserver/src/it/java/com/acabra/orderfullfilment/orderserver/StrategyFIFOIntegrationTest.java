@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.orderserver;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
+import com.acabra.orderfullfilment.orderserver.core.MetricsProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderRequestHandler;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
@@ -17,6 +18,7 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -45,8 +47,8 @@ public class StrategyFIFOIntegrationTest {
     @Test
     public void mustAssignOrdersFirstComeFirstServe() throws IOException, InterruptedException {
         // given
+        int expectedOrdersDelivered = 3;
         ArrayList<Courier> couriers = readCouriersFromFileTestFile();
-//        List<DeliveryOrderRequestDTO> orders = List.of(new DeliveryOrderRequestDTO("order-od", "banan", 2));
         List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile();
 
         //we want to control exactly how long the travel time to the kitchen will take for every courier
@@ -64,19 +66,30 @@ public class StrategyFIFOIntegrationTest {
 
         //when
         ScheduledExecutorService scheduledExecutorService = submitTheOrdersAtARateOf2PerSecond(orderHandler, ordersIterator);
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                    processor.close();
-                },
-                CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS));
-        ;
-        while (!scheduledExecutorService.isTerminated()) {
-            Thread.sleep(3000);
-        }
+        awaitTermination(10000L);
 
         //then
+        MetricsProcessor.DeliveryMetricsSnapshot actual = processor.getMetricsSnapshot();
 
         //verify
         Mockito.verify(estimatorMock, Mockito.times(3)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
+        Assertions.assertThat(actual.totalOrdersDelivered).isEqualTo(expectedOrdersDelivered);
+        Assertions.assertThat(actual.totalOrdersReceived).isEqualTo(orders.size());
+    }
+
+    private void awaitTermination(long timeInMills) throws InterruptedException {
+        CompletableFuture<MetricsProcessor.DeliveryMetricsSnapshot> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                Thread.sleep(timeInMills);
+            } catch (Exception e) {
+                throw new RuntimeException();
+            }
+            return null;
+        });
+        while (!future.isDone()) {
+            Thread.sleep(3000);
+        }
     }
 
     private List<DeliveryOrderRequestDTO> readOrdersFromTestFile() throws IOException {

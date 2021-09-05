@@ -23,18 +23,17 @@ public class CourierLoader {
     public List<Courier> readFromConfig(ResourceLoader resourceLoader) throws IOException {
         InputStream inputStream = null;
         try {
-            inputStream = resourceLoader.getResource("classpath:couriers.json").getInputStream();
+            inputStream = new FileInputStream("orderserver/target/couriers.json");
         } catch (Exception e) {
-            log.error("[SYSTEM] error loading from resource "+ e.getMessage(), e);
+            log.info("[SYSTEM] error loading from resource {}", e.getMessage());
             try {
-                inputStream = new FileInputStream("target/couriers.json");
-            } catch (FileNotFoundException ex) {
-                log.error("[SYSTEM] No Couriers loaded:" +ex.getMessage(), ex);
+                inputStream = resourceLoader.getResource("classpath:couriers.json").getInputStream();
+            } catch (Exception ex) {
+                log.error("[SYSTEM] No Couriers loaded:{}", ex.getMessage());
                 return Collections.emptyList();
             }
         }
-        ArrayList<Courier> couriers = new ObjectMapper().readValue(inputStream, new TypeReference<ArrayList<Courier>>() {
-        });
+        ArrayList<Courier> couriers = new ObjectMapper().readValue(inputStream, new TypeReference<>() {});
         log.info("[SYSTEM] {} Couriers loaded", couriers.size());
         return couriers;
     }
