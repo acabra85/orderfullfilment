@@ -1,5 +1,4 @@
 package com.acabra.orderfullfilment.orderserver;
-import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
@@ -10,7 +9,7 @@ import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.courier.CourierFleetImpl;
 import com.acabra.orderfullfilment.orderserver.courier.CourierServiceImpl;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcher;
-import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherFIFOImpl;
+import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherMatchedImpl;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
@@ -18,7 +17,6 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
-import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -33,21 +31,18 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
+
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {OrderServerConfig.class, CourierConfig.class})
 @TestPropertySource("classpath:application-integ.properties")
-public class StrategyFIFOIntegrationTest {
-
+public class StrategyMatchedIntegrationTest {
     @Autowired
     private OrderServerConfig serverConfig;
 
     @Autowired
     private ResourceLoader resourceLoader;
 
-    /**
-     * In this test all the orders are cooked before the drivers arrived,
-     *
-     */
     @Test
     public void mustAssignOrdersFirstComeFirstServe() throws IOException, InterruptedException {
         // given
@@ -81,14 +76,12 @@ public class StrategyFIFOIntegrationTest {
         Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
         Assertions.assertThat(actual.totalOrdersDelivered).isEqualTo(expectedOrdersDelivered);
         Assertions.assertThat(actual.totalOrdersReceived).isEqualTo(orders.size());
-        Assertions.assertThat(actual.avgFoodWaitTime).isCloseTo(578.0d, Offset.offset(18.0));
-        Assertions.assertThat(actual.avgCourierWaitTime).isCloseTo(578.0d, Offset.offset(18.0));
     }
 
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock, OrderRequestHandler orderHandler) {
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock);
-        OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherFIFOImpl();
+        OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherMatchedImpl();
         CourierDispatchService courierService = new CourierServiceImpl(courierFleet, orderCourierMatcher);
         KitchenService kitchen = new KitchenServiceImpl();
         return new OrderProcessor(serverConfig, courierService, kitchen, orderHandler, deque);

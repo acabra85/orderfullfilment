@@ -87,9 +87,9 @@ public class OrderProcessor implements Closeable {
 
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
-        final long reservationId = kitchenService.orderCookReservationId(order);
+        final long reservationId = kitchenService.proviedReservationId(order);
         CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture
-                .supplyAsync(() -> courierService.dispatchRequest(order));
+                .supplyAsync(() -> courierService.dispatchRequest(order, reservationId));
         return courierDispatch.thenApply(courierId -> {
             if(courierId.isPresent()) {
                 kitchenService.prepareMeal(reservationId);
@@ -107,7 +107,8 @@ public class OrderProcessor implements Closeable {
             case ORDER_RECEIVED:
                 this.metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
-                log.info("[EVENT] order received : {} at: {}" , orderReceivedEvent.order.id,
+                log.info("[EVENT] order received : {} prepTime:{} name:{} at: {}" , orderReceivedEvent.order.id,
+                        orderReceivedEvent.order.prepTime, orderReceivedEvent.order.name,
                         KitchenClock.formatted(orderReceivedEvent.createdAt));
                 processOrder(orderReceivedEvent).join();
                 break;
@@ -115,10 +116,11 @@ public class OrderProcessor implements Closeable {
                 CourierDispatchedEvent courierDispatchedEvent = (CourierDispatchedEvent) outputEvent;
                 log.info("[EVENT] courier dispatched: id[{}] estimated travel time [{}]ms",
                         courierDispatchedEvent.courierId, courierDispatchedEvent.estimatedTravelTime);
+                courierService.processCourierDispatchedEvent(courierDispatchedEvent);
                 break;
             case ORDER_PREPARED:
                 OrderPreparedEvent orderPreparedEvent = (OrderPreparedEvent) outputEvent;
-                log.info("[EVENT] order prepared: mealId{}, orderId[{}] at {}", orderPreparedEvent.mealOrderId,
+                log.info("[EVENT] order prepared: mealId[{}], orderId[{}] at {}", orderPreparedEvent.mealOrderId,
                     orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
                 courierService.processOrderPrepared(orderPreparedEvent);
                 break;

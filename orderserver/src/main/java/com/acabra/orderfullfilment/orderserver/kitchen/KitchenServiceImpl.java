@@ -70,7 +70,7 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public long orderCookReservationId(DeliveryOrder order) {
+    public long proviedReservationId(DeliveryOrder order) {
         long mealOrderId = cookingOrderId.getAndIncrement();
         internalIdToOrder.put(mealOrderId, order);
         log.debug("Id requested for meal order: {} given: {}", order.id, mealOrderId);

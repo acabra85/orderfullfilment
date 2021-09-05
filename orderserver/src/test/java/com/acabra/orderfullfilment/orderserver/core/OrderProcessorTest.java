@@ -105,13 +105,13 @@ class OrderProcessorTest {
         Mockito.doNothing()
                 .when(courierServiceMock).registerNotificationDeque(deque);
         Mockito.doReturn(Optional.of(courierId))
-                .when(courierServiceMock).dispatchRequest(Mockito.any());
+                .when(courierServiceMock).dispatchRequest(Mockito.any(), cookReservationId);
 
         //#setup kitchen
         Mockito.doNothing()
                 .when(kitchenServiceMock).registerNotificationDeque(deque);
         Mockito.doReturn(cookReservationId)
-                .when(kitchenServiceMock).orderCookReservationId(bananaSplitOrder);
+                .when(kitchenServiceMock).proviedReservationId(bananaSplitOrder);
         Mockito.doReturn(CompletableFuture.completedFuture(true))
                 .when(kitchenServiceMock).prepareMeal(cookReservationId);
 
@@ -131,9 +131,9 @@ class OrderProcessorTest {
 
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
-        Mockito.verify(courierServiceMock, Mockito.times(1)).dispatchRequest(bananaSplitOrder);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).dispatchRequest(bananaSplitOrder, cookReservationId);
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
-        Mockito.verify(kitchenServiceMock, Mockito.times(1)).orderCookReservationId(bananaSplitOrder);
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).proviedReservationId(bananaSplitOrder);
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).prepareMeal(cookReservationId);
         Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
     }
@@ -150,13 +150,13 @@ class OrderProcessorTest {
         Mockito.doNothing()
                 .when(courierServiceMock).registerNotificationDeque(deque);
         Mockito.doReturn(Optional.empty())
-                .when(courierServiceMock).dispatchRequest(bananaSplitOrder);
+                .when(courierServiceMock).dispatchRequest(bananaSplitOrder, cookReservationId);
 
         //#setup kitchen
         Mockito.doNothing()
                 .when(kitchenServiceMock).registerNotificationDeque(deque);
         Mockito.doReturn(cookReservationId)
-                .when(kitchenServiceMock).orderCookReservationId(bananaSplitOrder);
+                .when(kitchenServiceMock).proviedReservationId(bananaSplitOrder);
         Mockito.doReturn(true)
                 .when(kitchenServiceMock).cancelCookReservation(cookReservationId);
 
@@ -174,9 +174,9 @@ class OrderProcessorTest {
 
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
-        Mockito.verify(courierServiceMock, Mockito.times(1)).dispatchRequest(bananaSplitOrder);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).dispatchRequest(bananaSplitOrder, cookReservationId);
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
-        Mockito.verify(kitchenServiceMock, Mockito.times(1)).orderCookReservationId(bananaSplitOrder);
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).proviedReservationId(bananaSplitOrder);
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).cancelCookReservation(cookReservationId);
         Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
     }

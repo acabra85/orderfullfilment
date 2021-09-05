@@ -13,7 +13,7 @@ public interface KitchenService extends OutputEventPublisher {
      * @param order the delivery order
      * @return id of the reservation
      */
-    long orderCookReservationId(DeliveryOrder order);
+    long proviedReservationId(DeliveryOrder order);
 
     /**
      * Cancels the reservation order to cook a meal

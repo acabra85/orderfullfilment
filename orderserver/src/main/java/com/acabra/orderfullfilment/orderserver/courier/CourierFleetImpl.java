@@ -74,7 +74,7 @@ public class CourierFleetImpl implements CourierFleet {
         log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 
-    private CompletableFuture<Boolean> schedule(long timeToDestination, int courierId) {
+    private CompletableFuture<Boolean> schedule(int timeToDestination, int courierId) {
         long eta = KitchenClock.now() + 1000L * timeToDestination;
         return CompletableFuture.supplyAsync(() -> {
                     CourierArrivedEvent pickupEvent = CourierArrivedEvent.of(courierId, eta, KitchenClock.now());

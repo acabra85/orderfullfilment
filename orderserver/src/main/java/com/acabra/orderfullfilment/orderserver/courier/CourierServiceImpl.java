@@ -30,21 +30,23 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public Optional<Integer> dispatchRequest(DeliveryOrder order) {
+    public Optional<Integer> dispatchRequest(DeliveryOrder order, long kitchenReservationId) {
         DispatchResult dispatchResult = this.courierFleet.dispatch(order);
         Integer courierId = dispatchResult.courierId;
         if(null != courierId) {
-            publishCourierDispatchedNotification(order, courierId, dispatchResult.estimatedTravelTime);
+            publishCourierDispatchedNotification(order, courierId, dispatchResult.estimatedTravelTime, kitchenReservationId);
             return Optional.of(courierId);
         }
         return Optional.empty();
     }
 
-    private void publishCourierDispatchedNotification(DeliveryOrder order, Integer courierId, int estimatedTravelTime) {
+    private void publishCourierDispatchedNotification(DeliveryOrder order, Integer courierId, int estimatedTravelTime,
+                                                      long kitchenReservationId) {
         Deque<OutputEvent> deque = this.publicNotificationQueue.get();
         if(null != deque) {
             try {
-                 deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, estimatedTravelTime));
+                 deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, kitchenReservationId,
+                         estimatedTravelTime));
             } catch (Exception e) {
                 log.error("Unable to publish courier dispatched event: {}", e.getMessage(), e);
             }
@@ -54,7 +56,7 @@ public class CourierServiceImpl implements CourierDispatchService {
     @Override
     public CompletableFuture<Boolean> processOrderPrepared(OrderPreparedEvent orderPreparedEvent) {
         return CompletableFuture.supplyAsync(
-                () -> orderCourierMatcher.acceptMealPreparedEvent(orderPreparedEvent));
+                () -> orderCourierMatcher.acceptOrderPreparedEvent(orderPreparedEvent));
     }
 
     @Override
@@ -74,5 +76,10 @@ public class CourierServiceImpl implements CourierDispatchService {
         this.publicNotificationQueue.set(deque);
         this.orderCourierMatcher.registerNotificationDeque(deque);
         this.courierFleet.registerNotificationDeque(deque);
+    }
+
+    @Override
+    public void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent) {
+        this.orderCourierMatcher.processCourierDispatchedEvent(courierDispatchedEvent);
     }
 }

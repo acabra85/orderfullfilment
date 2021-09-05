@@ -30,7 +30,7 @@ class OrderCourierMatcherFIFOImplTest {
                 return queue.poll();
                 }, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
 
-        CompletableFuture.runAsync(() -> underTest.acceptMealPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80)),
+        CompletableFuture.runAsync(() -> underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80)),
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
@@ -57,7 +57,7 @@ class OrderCourierMatcherFIFOImplTest {
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptMealPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.get();
@@ -79,7 +79,7 @@ class OrderCourierMatcherFIFOImplTest {
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptMealPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.getNow(null);
@@ -99,7 +99,7 @@ class OrderCourierMatcherFIFOImplTest {
             CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptMealPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.getNow(null);

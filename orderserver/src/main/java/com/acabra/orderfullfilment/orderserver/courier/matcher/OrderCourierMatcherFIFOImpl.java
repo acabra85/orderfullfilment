@@ -1,9 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.courier.matcher;
 
-import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
-import com.acabra.orderfullfilment.orderserver.event.OrderPickedUpEvent;
-import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
-import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -30,13 +27,13 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     }
 
     @Override
-    public boolean acceptMealPreparedEvent(OrderPreparedEvent orderPreparedEvt) {
+    public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent) {
         try {
             CourierArrivedEvent courierEvt = couriersArrived.poll();
             if (null != courierEvt) {
-                publishedOrderPickedUpEvent(courierEvt, orderPreparedEvt);
+                publishedOrderPickedUpEvent(courierEvt, orderPreparedEvent);
             } else {
-                mealsPrepared.offer(orderPreparedEvt);
+                mealsPrepared.offer(orderPreparedEvent);
             }
             return true;
         } catch (Exception e) {
@@ -72,4 +69,8 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
             log.error("Unable to publish result to notification queue {}", e.getMessage(), e);
         }
     }
+
+    //this event can be ignored as the matching takes place upon courier or meal arrival
+    @Override
+    public void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent) {}
 }

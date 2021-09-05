@@ -52,10 +52,11 @@ class CourierServiceImplTest {
     @Test
     void mustReturnEmptyNoCouriers() {
         //given
+        long reservationId = 0L;
         Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.notDispatched());
 
         //when
-        Optional actual = underTest.dispatchRequest(null);
+        Optional actual = underTest.dispatchRequest(null, reservationId);
 
         //then
         Mockito.verify(fleetMock).dispatch(null);
@@ -65,10 +66,11 @@ class CourierServiceImplTest {
     @Test
     void mustReturnCourierIdAvailableCourier() {
         //given
+        long reservationId = 0L;
         Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.ofCompleted(5, 1));
 
         //when
-        Optional<Integer> actual = underTest.dispatchRequest(null);
+        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId);
 
         //then
         Mockito.verify(fleetMock).dispatch(null);
@@ -82,7 +84,7 @@ class CourierServiceImplTest {
         underTest = new CourierServiceImpl(fleetMock, orderCourierMatcherMock);
         Mockito.doReturn(true)
                 .when(orderCourierMatcherMock)
-                .acceptMealPreparedEvent(VALID_ORDER_PREPARED_EVENT);
+                .acceptOrderPreparedEvent(VALID_ORDER_PREPARED_EVENT);
         Mockito.doNothing()
                 .when(orderCourierMatcherMock)
                 .registerNotificationDeque(mockDeque);
@@ -98,7 +100,7 @@ class CourierServiceImplTest {
         //then
         Mockito.verifyNoInteractions(mockDeque);
         Mockito.verify(fleetMock, Mockito.times(1)).registerNotificationDeque(mockDeque);
-        Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).acceptMealPreparedEvent(VALID_ORDER_PREPARED_EVENT);
+        Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).acceptOrderPreparedEvent(VALID_ORDER_PREPARED_EVENT);
         Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).registerNotificationDeque(mockDeque);
         Assertions.assertThat(actual).isTrue();
     }

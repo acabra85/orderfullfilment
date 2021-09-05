@@ -28,7 +28,7 @@ class KitchenServiceImplTest {
     @Test
     void mustReturnTrue_cancelReservationWithValidNumber() {
         //given
-        long reservationId = underTest.orderCookReservationId(deliveryStub);
+        long reservationId = underTest.proviedReservationId(deliveryStub);
 
         //when
         boolean actual = underTest.cancelCookReservation(reservationId);
@@ -75,7 +75,7 @@ class KitchenServiceImplTest {
         Mockito.doNothing().when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
 
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.orderCookReservationId(deliveryStub);
+        long reservationId = underTest.proviedReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
@@ -95,7 +95,7 @@ class KitchenServiceImplTest {
         //given
         Mockito.doThrow(RuntimeException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.orderCookReservationId(deliveryStub);
+        long reservationId = underTest.proviedReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
@@ -116,7 +116,7 @@ class KitchenServiceImplTest {
         //given
         Mockito.doThrow(InterruptedException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.orderCookReservationId(deliveryStub);
+        long reservationId = underTest.proviedReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
@@ -133,7 +133,7 @@ class KitchenServiceImplTest {
     @Test
     void prepareMeal() {
         //given
-        long reservationId = underTest.orderCookReservationId(deliveryStub);
+        long reservationId = underTest.proviedReservationId(deliveryStub);
         underTest.prepareMeal(reservationId);
     }
 
