@@ -6,13 +6,15 @@ This is a real time simulator of a food delivery order systems.
 #### Pre-requisites
 - Java JDK 11 or higher is installed https://adoptopenjdsk.net/installation.html
 - Test the installation with this command ```java -version```
+- place your terminal in the root of the project (cd orderfullfilment)
+- assign execute permissions to the .mvnw file ```chmod +x .mvnw```
 
 ### [Unix systems or Windows Git Bash terminal]
 The system has two components a server and an order generator:
 
 1. Build the jar files run the command (This will build both systems):
 
-    ```./mvnw clean package > build-result.orig && less -12 build-result.orig```
+    ```./mvnw clean package > build-result.orig && tail -12 build-result.orig```
     
     **Note:** The output is directed to a file to improve execution time.
 

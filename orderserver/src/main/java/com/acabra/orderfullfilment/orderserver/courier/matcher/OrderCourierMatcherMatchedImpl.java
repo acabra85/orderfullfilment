@@ -3,7 +3,6 @@ package com.acabra.orderfullfilment.orderserver.courier.matcher;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.maven.artifact.repository.RepositoryCache;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
