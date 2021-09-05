@@ -3,6 +3,7 @@ package com.acabra.orderfullfilment.orderproducer.dispatch;
 import com.acabra.orderfullfilment.orderproducer.dto.DeliveryOrderRequestDTO;
 import com.acabra.orderfullfilment.orderproducer.dto.OrderDispatcherStatusPOJO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -19,7 +20,8 @@ import java.util.concurrent.atomic.LongAdder;
 public class PeriodicOrderDispatcherClientImpl implements PeriodicOrderDispatcherClient {
 
     static final String ORDERS_RESOURCE = "http://localhost:9000/orderserver/api/orders";
-    public static final long PERIOD = 500L;
+
+    public  final long period;
     private final LongAdder successCount = new LongAdder();
     private final LongAdder failureCount = new LongAdder();
     private final RestTemplate restTemplate;
@@ -27,7 +29,8 @@ public class PeriodicOrderDispatcherClientImpl implements PeriodicOrderDispatche
     private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     private final CompletableFuture<OrderDispatcherStatusPOJO> completionFuture = new CompletableFuture<>();
 
-    public PeriodicOrderDispatcherClientImpl(RestTemplate restTemplate) {
+    public PeriodicOrderDispatcherClientImpl(@Value("${ordergenerator.order-publish-period-millis}")long period, RestTemplate restTemplate) {
+        this.period = period;
         this.restTemplate = restTemplate;
     }
 
@@ -47,7 +50,7 @@ public class PeriodicOrderDispatcherClientImpl implements PeriodicOrderDispatche
                     CompletableFuture<Void> fut = task.getTaskCompletedFuture();
                     task.run();
                     fut.get();
-                    Thread.sleep(PERIOD);
+                    Thread.sleep(period);
                 }
             } catch (Exception e) {
                 log.error("Thread interrupted: " + e.getMessage());

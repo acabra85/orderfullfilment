@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 @ContextConfiguration(classes = {RestClientConfig.class})
 class PeriodicOrderDispatcherClientImplTest {
 
+    public static final long PERIOD_POST_ORDER_MILLIS = 500L;
     protected PeriodicOrderDispatcherClientImpl underTest;
 
     @Autowired
@@ -38,7 +39,7 @@ class PeriodicOrderDispatcherClientImplTest {
     @BeforeEach
     void setUp() {
         mockServer = MockRestServiceServer.createServer(restTemplate);
-        underTest = new PeriodicOrderDispatcherClientImpl(restTemplate);
+        underTest = new PeriodicOrderDispatcherClientImpl(PERIOD_POST_ORDER_MILLIS, restTemplate);
     }
 
     @Test
