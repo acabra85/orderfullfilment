@@ -15,7 +15,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -27,25 +26,25 @@ public class OrderProcessor implements Closeable {
      * provides a public method close to finish threads consuming order events.
      */
 
-    private static final OutputEvent NO_PENDING_ORDERS = new OutputEvent(EventType.NO_PENDING_ORDERS, KitchenClock.now()) {};
-
     private final CourierDispatchService courierService;
     private final KitchenService kitchenService;
     private final MetricsProcessor metricsProcessor;
     private final Deque<OutputEvent> deque;
     private final List<OutputEventHandler> eventConsumers;
+    private final long pollingTimeMillis;
     private final ExecutorService noMoreOrdersMonitor;
-    private final LongAdder activeOrders = new LongAdder();
 
     public OrderProcessor(OrderServerConfig orderServerConfig,
                           CourierDispatchService courierService,
                           KitchenService kitchenService,
                           @Qualifier("order_handler") OutputEventPublisher orderHandler,
-                          Deque<OutputEvent> deque) {
+                          @Qualifier("notification_deque") Deque<OutputEvent> deque) {
         this.metricsProcessor = new MetricsProcessor();
         this.deque = deque;
+        this.pollingTimeMillis = orderServerConfig.getPollingTimeMillis();
         this.eventConsumers = startOutputEventProcessors(orderServerConfig.getThreadCount(), deque);
-        this.noMoreOrdersMonitor = startNoMoreOrdersMonitor(orderServerConfig.getPeriodShutDownMonitor());
+        this.noMoreOrdersMonitor = startNoMoreOrdersMonitor(orderServerConfig.getPeriodShutDownMonitorSeconds(),
+                orderServerConfig.getPollingMaxRetries());
         this.courierService = courierService;
         this.kitchenService = kitchenService;
 
@@ -55,20 +54,30 @@ public class OrderProcessor implements Closeable {
         orderHandler.registerNotificationDeque(deque);
     }
 
-    private ExecutorService startNoMoreOrdersMonitor(int periodShutDownMonitorSeconds) {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(() -> {
-            boolean allBlocked = this.eventConsumers.stream().allMatch(t -> Thread.State.BLOCKED == t.getState());
-            long sum = activeOrders.sum();
-            log.debug("[SYSTEM] {} orders awaiting delivery", sum);
-            if(allBlocked && sum == 0) { // all received work completed
-                this.deque.offer(NO_PENDING_ORDERS);
+    private ExecutorService startNoMoreOrdersMonitor(int periodShutDownMonitorSeconds, int pollingMaxRetries) {
+        final ExecutorService noOrdersMonitorExecutor = Executors.newSingleThreadExecutor();
+        final RetryBudget retryBudget = RetryBudget.of(pollingMaxRetries);
+        CompletableFuture.runAsync(() -> {
+            log.debug("[SYSTEM] Monitoring delivery queue");
+            while (retryBudget.hasMoreTokens()) {
+                try {
+                    if(deque.isEmpty()) {
+                        retryBudget.spendRetryToken();
+                    } else {
+                        retryBudget.success();
+                    }
+                    Thread.sleep(periodShutDownMonitorSeconds);
+                } catch (InterruptedException e) {
+                    log.error("Thread interrupted: {}", e.getMessage(), e);
+                }
             }
-        }, 1000L, periodShutDownMonitorSeconds, TimeUnit.SECONDS);
-        return executorService;
+            this.deque.offer(new OutputEvent(EventType.NO_PENDING_ORDERS, KitchenClock.now()) {});
+            log.debug("[SYSTEM] no orders awaiting delivery");
+        }, noOrdersMonitorExecutor);
+        return noOrdersMonitorExecutor;
     }
 
-    private List<OutputEventHandler> startOutputEventProcessors(int threadCount,Deque<OutputEvent> deque) {
+    private List<OutputEventHandler> startOutputEventProcessors(int threadCount, Deque<OutputEvent> deque) {
         List<OutputEventHandler> tasks = IntStream.range(0, threadCount)
                 .mapToObj(i -> new OutputEventHandler(i, deque))
                 .collect(Collectors.toList());
@@ -76,21 +85,16 @@ public class OrderProcessor implements Closeable {
         return tasks;
     }
 
-    @Bean
-    public static Deque<OutputEvent> buildNotificationDeque() {
-        return new ConcurrentLinkedDeque<>();
-    }
-
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
-        final Long reservationId = kitchenService.orderCookReservationId(order);
-        CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture.supplyAsync(() -> courierService.dispatchRequest(order));
+        final long reservationId = kitchenService.orderCookReservationId(order);
+        CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture
+                .supplyAsync(() -> courierService.dispatchRequest(order));
         return courierDispatch.thenApply(courierId -> {
             if(courierId.isPresent()) {
                 kitchenService.prepareMeal(reservationId);
                 return true;
             } else {
-                activeOrders.decrement();
                 log.info("No couriers available to deliver the order ... cancelling cooking reservation");
                 kitchenService.cancelCookReservation(reservationId);
                 return false;
@@ -101,7 +105,7 @@ public class OrderProcessor implements Closeable {
     private void dispatchOutputEvent(final OutputEvent outputEvent) {
         switch (outputEvent.type) {
             case ORDER_RECEIVED:
-                activeOrders.increment();
+                this.metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
                 log.info("[EVENT] order received : {} at: {}" , orderReceivedEvent.order.id,
                         KitchenClock.formatted(orderReceivedEvent.createdAt));
@@ -109,23 +113,30 @@ public class OrderProcessor implements Closeable {
                 break;
             case COURIER_DISPATCHED:
                 CourierDispatchedEvent courierDispatchedEvent = (CourierDispatchedEvent) outputEvent;
-                log.info("[EVENT] courier dispatched: id[{}]", courierDispatchedEvent.courierId);
+                log.info("[EVENT] courier dispatched: id[{}] estimated travel time [{}]ms",
+                        courierDispatchedEvent.courierId, courierDispatchedEvent.estimatedTravelTime);
                 break;
             case ORDER_PREPARED:
-                OrderPreparedEvent prepared = (OrderPreparedEvent) outputEvent;
-                courierService.processOrderPrepared(prepared);
+                OrderPreparedEvent orderPreparedEvent = (OrderPreparedEvent) outputEvent;
+                log.info("[EVENT] order prepared: mealId{}, orderId[{}] at {}", orderPreparedEvent.mealOrderId,
+                    orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
+                courierService.processOrderPrepared(orderPreparedEvent);
                 break;
             case COURIER_ARRIVED:
-                CourierArrivedEvent arrived = (CourierArrivedEvent) outputEvent;
-                courierService.processCourierArrived(arrived);
+                CourierArrivedEvent courierArrivedEvent = (CourierArrivedEvent) outputEvent;
+                log.info("[EVENT] courier arrived id[{}], for pickup at {}ms", courierArrivedEvent.courierId,
+                        KitchenClock.formatted(courierArrivedEvent.createdAt));
+                courierService.processCourierArrived(courierArrivedEvent);
                 break;
             case ORDER_PICKED_UP:
-                OrderPickedUpEvent pickedUp = (OrderPickedUpEvent) outputEvent;
-                reportPickupMetrics(pickedUp);
-                processOrderPickedUp(pickedUp);
+                OrderPickedUpEvent orderPickedUpEvent = (OrderPickedUpEvent) outputEvent;
+                log.info("[EVENT] order picked up: orderId[{}] courierId[{}] at {}",
+                        orderPickedUpEvent.mealOrderId, orderPickedUpEvent.courierId,
+                        KitchenClock.formatted(orderPickedUpEvent.createdAt));
+                reportPickupMetrics(orderPickedUpEvent);
+                processOrderPickedUp(orderPickedUpEvent);
                 break;
             case ORDER_DELIVERED:
-                activeOrders.decrement();
                 OrderDeliveredEvent orderDeliveredEvent = (OrderDeliveredEvent) outputEvent;
                 log.info("[EVENT] order delivered: orderId[{}] by courierId[{}] at {}",
                         orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId,
@@ -156,28 +167,39 @@ public class OrderProcessor implements Closeable {
     }
 
     private void reportAverageMetrics() {
+        MetricsProcessor.DeliveryMetricsSnapshot snapshot = this.metricsProcessor.snapshot();
         log.info(String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms",
-                this.metricsProcessor.getAvgFoodWaitTime(), this.metricsProcessor.getAvgCourierWaitTime()));
+                snapshot.avgFoodWaitTime, snapshot.avgFoodWaitTime));
     }
 
     @Override
     public void close() {
-        if(this.noMoreOrdersMonitor.isTerminated()) {return;}
+        if (!this.noMoreOrdersMonitor.isTerminated()) {
+            log.info("[SYSTEM] queue processing shutting down, no orders remaining");
+            this.noMoreOrdersMonitor.shutdown();
+            OutputEvent sigPill = new OutputEvent(EventType.SHUT_DOWN_REQUEST, KitchenClock.now()){};
+            IntStream.range(0, eventConsumers.size())
+                .forEach(i -> {
+                    try {
+                        deque.offer(sigPill);
+                    } catch (Exception e) {
+                        log.error("unable to signal termination to thread: {}", e.getMessage(), e);
+                    }
+                });
+        }
+    }
 
-        reportAverageMetrics();
-        this.noMoreOrdersMonitor.shutdownNow();
-        OutputEvent sigPill = new OutputEvent(EventType.SHUT_DOWN_REQUEST, KitchenClock.now()) {};
-        IntStream.range(0, eventConsumers.size())
-            .forEach(i -> {
-                try {
-                     deque.offer(sigPill);
-                } catch (Exception e) {
-                    log.error("unable to signal termination to thread: {}", e.getMessage(), e);
-                }
-        });
+    @Bean("notification_deque")
+    public static Deque<OutputEvent> buildNotificationDeque() {
+        return new ConcurrentLinkedDeque<>();
+    }
+
+    public MetricsProcessor.DeliveryMetricsSnapshot getMetricsSnapshot() {
+        return this.metricsProcessor.snapshot();
     }
 
     private class OutputEventHandler extends Thread {
+        private final long POLLING_TIME_MILLIS = OrderProcessor.this.pollingTimeMillis;
         private final Deque<OutputEvent> deque;
         private volatile boolean finish;
 
@@ -199,7 +221,7 @@ public class OrderProcessor implements Closeable {
                         }
                         dispatchOutputEvent(take);
                     }
-                    Thread.sleep(400L);
+                    Thread.sleep(POLLING_TIME_MILLIS);
                 }
             } catch (InterruptedException e) {
                 log.error("Monitor interrupted thread failed!!" + e.getMessage(), e);

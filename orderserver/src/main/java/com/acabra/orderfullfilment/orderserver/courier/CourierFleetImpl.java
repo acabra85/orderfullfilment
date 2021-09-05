@@ -40,7 +40,7 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
-        return new ConcurrentHashMap(this.availableCouriers.size() != couriers.size() ?
+        return new ConcurrentHashMap<>(this.availableCouriers.size() != couriers.size() ?
                 couriers.stream()
                         .filter(c -> !c.isAvailable())
                         .map(c-> Map.entry(c.id, c))
@@ -54,9 +54,9 @@ public class CourierFleetImpl implements CourierFleet {
         Courier courier = availableCouriers.poll();
         if(null != courier) {
             dispatchedCouriers.put(courier.id, courier);
-            int eta = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
-            CompletableFuture<Boolean> schedule = this.schedule(eta, courier.id);
-            return DispatchResult.of(courier.id, schedule);
+            int estimatedTravelTime = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
+            CompletableFuture<Boolean> schedule = this.schedule(estimatedTravelTime, courier.id);
+            return DispatchResult.of(courier.id, schedule, estimatedTravelTime);
         }
         return DispatchResult.notDispatched();
     }
@@ -78,8 +78,6 @@ public class CourierFleetImpl implements CourierFleet {
         long eta = KitchenClock.now() + 1000L * timeToDestination;
         return CompletableFuture.supplyAsync(() -> {
                     CourierArrivedEvent pickupEvent = CourierArrivedEvent.of(courierId, eta, KitchenClock.now());
-                    log.info("[EVENT] courier arrived id[{}], for pickup at {}ms", pickupEvent.courierId,
-                            KitchenClock.formatted(pickupEvent.createdAt));
                     try {
                         if(courierAvailableNotificationDeque.get() != null) {
                             courierAvailableNotificationDeque.get().offer(pickupEvent);
