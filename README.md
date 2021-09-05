@@ -27,12 +27,12 @@ The system has two components a server and an order generator:
     |Name|Description|Values|
     |---|---|---|
     |order_source|the source of the orders to load in the system| *tiny*, *small*, *large* or your_own_file|
-    |---|---|---|
+
     
     * **tiny**: points to default 5 order file within the system
     * **small**: points to default 24 order file within the system
     * **large**: points to default 129600 order file, equivalent to 24hrs (assuming 2 orders dispatched per second.
-    * **your_own_file**: provide a path of your json file containing an array of Orders e.g. */mypath/to/file/orders.json*
+    * **your_own_file**: provide a full path of your json file containing an array of Orders e.g. */mypath/to/file/orders.json*
     
     e.g.
     ```java -jar orderserver/target/orderserver-1.0.jar /mypath/to/file/orders.json```
@@ -46,15 +46,22 @@ Replace the command ```./mvnw``` for ```mvnw.cmd```.
 ### Couriers
 - The system loads a total of 10 couriers available.
 - After dispatch the courier transits to "dispatched" state.
+- The dispatching of couriers are based on the defined strategy:
+    ###### FIFO
+    Every courier is dispatched to pick up any order available in the kitchen, on first come, first served basis.
+
+    ###### Matched
+    Every courier is dispatched to pick up a specific order
+
 - After a courier delivers an order it transits back to "available".
 
 ### Orders
-- This system dispatches the given orders at a rate of 2 orders per second.
-- The orders are received on a queue and can be discarded if no courier is available for pick up.
-- The matching between orders and couriers is done by the relevant strategy either FIFO or courier-order.
-    
-    ###### FIFO
-    First Courier Arrives to kitchen picks the first available order
-    
-    ###### 
+- This system dispatches the given orders at a rate of two orders per second.
+- The orders are received on a queue and can be discarded if no courier is available for pickup.
+
+## Architecture
+The system works based on events published in a notification queue, and a central order systems
+that receives the events and calls the relevant component.
+
+
 
