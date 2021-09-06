@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -78,7 +79,8 @@ public class StrategyMatchedIntegrationTest {
         Assertions.assertThat(actual.totalOrdersReceived).isEqualTo(orders.size());
     }
 
-    private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock, OrderRequestHandler orderHandler) {
+    private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock,
+                                                 OrderRequestHandler orderHandler) {
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock);
         OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherMatchedImpl();

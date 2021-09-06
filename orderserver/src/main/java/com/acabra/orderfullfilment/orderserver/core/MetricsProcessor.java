@@ -8,6 +8,7 @@ public class MetricsProcessor {
     private final LongSummaryStatistics foodWaitTimeStats = new LongSummaryStatistics();
     private final LongSummaryStatistics courierWaitTimeStats = new LongSummaryStatistics();
     private final LongAdder totalOrdersReceived = new LongAdder();
+    private final LongAdder ordersPrepareRequest = new LongAdder();
 
     void acceptFoodWaitTime(long time) {
         foodWaitTimeStats.accept(time);
@@ -18,37 +19,48 @@ public class MetricsProcessor {
     }
 
     DeliveryMetricsSnapshot snapshot() {
-        return DeliveryMetricsSnapshot.of(foodWaitTimeStats.getCount(),
+        return DeliveryMetricsSnapshot.of(
                 this.totalOrdersReceived.sum(),
-                foodWaitTimeStats.getAverage(),
-                courierWaitTimeStats.getAverage());
+                this.ordersPrepareRequest.sum(),
+                this.foodWaitTimeStats.getCount(),
+                this.foodWaitTimeStats.getAverage(),
+                this.courierWaitTimeStats.getAverage());
     }
 
     public void acceptOrderReceived() {
         this.totalOrdersReceived.increment();
     }
 
+    public void acceptOrderPrepareRequest() {
+        this.ordersPrepareRequest.increment();
+    }
+
 
     public static class DeliveryMetricsSnapshot {
 
+        public final long totalOrdersReceived;
+        public final long totalOrdersPrepared;
         public final long totalOrdersDelivered;
         public final double avgFoodWaitTime;
         public final double avgCourierWaitTime;
-        public long totalOrdersReceived;
 
-        private DeliveryMetricsSnapshot(long totalOrdersDelivered,
+        private DeliveryMetricsSnapshot(
                                         long totalOrdersReceived,
+                                        long totalOrdersPrepared,
+                                        long totalOrdersDelivered,
                                         double avgFoodWaitTime,
                                         double avgCourierWaitTime) {
-            this.totalOrdersDelivered = totalOrdersDelivered;
             this.totalOrdersReceived = totalOrdersReceived;
+            this.totalOrdersPrepared = totalOrdersPrepared;
+            this.totalOrdersDelivered = totalOrdersDelivered;
             this.avgFoodWaitTime = avgFoodWaitTime;
             this.avgCourierWaitTime = avgCourierWaitTime;
         }
 
-        public static DeliveryMetricsSnapshot of(long totalOrdersDelivered,long totalOrdersReceived,
+        public static DeliveryMetricsSnapshot of(long totalOrdersReceived, long totalOrdersPrepared, long totalOrdersDelivered,
                                                  double avgFoodWaitTime, double avgCourierWaitTime) {
-            return new DeliveryMetricsSnapshot(totalOrdersDelivered, totalOrdersReceived, avgFoodWaitTime, avgCourierWaitTime);
+            return new DeliveryMetricsSnapshot(totalOrdersReceived, totalOrdersPrepared, totalOrdersDelivered,
+                    avgFoodWaitTime, avgCourierWaitTime);
         }
 
     }

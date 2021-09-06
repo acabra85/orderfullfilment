@@ -23,6 +23,10 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     private final Map<Integer, Long> couriersToOrderMap = new ConcurrentHashMap<>();
     private final Map<Long, Integer> ordersToCourierMap = new ConcurrentHashMap<>();
 
+    public OrderCourierMatcherMatchedImpl() {
+        log.info("[SYSTEM] Initialized the server using the dispatch MATCHED strategy");
+    }
+
     @Override
     public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent) {
         try {

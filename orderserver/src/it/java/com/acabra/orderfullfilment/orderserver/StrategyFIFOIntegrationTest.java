@@ -1,5 +1,4 @@
 package com.acabra.orderfullfilment.orderserver;
-import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 
 import com.acabra.orderfullfilment.orderserver.config.CourierConfig;
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
@@ -30,8 +29,11 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {OrderServerConfig.class, CourierConfig.class})

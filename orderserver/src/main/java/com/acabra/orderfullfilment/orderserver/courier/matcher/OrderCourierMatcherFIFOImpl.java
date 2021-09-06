@@ -21,6 +21,10 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     private final Deque<CourierArrivedEvent> couriersArrived = new ConcurrentLinkedDeque<>();
     private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque = new AtomicReference<>();
 
+    public OrderCourierMatcherFIFOImpl() {
+        log.info("[SYSTEM] Initialized the server using the dispatch FIFO strategy");
+    }
+
     @Override
     public void registerNotificationDeque(Deque<OutputEvent> deque) {
         this.publicNotificationDeque.set(deque);
