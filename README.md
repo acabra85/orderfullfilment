@@ -21,7 +21,7 @@ The system has two components a server and an order generator:
    #### Server Optional Arguments
 
    |Name|Description|Values|Default|
-       |---|---|---|---|
+   |---|---|---|---|
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
