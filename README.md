@@ -7,7 +7,7 @@ This is a real time simulator of a food delivery order systems.
 - Java JDK 11 or higher is installed https://adoptopenjdsk.net/installation.html
 - Test the installation with this command ```java -version```
 - place your terminal in the root of the project (cd orderfullfilment)
-- assign execute permissions to the .mvnw file ```chmod +x mvnw```
+- assign execute permissions to the mvnw file ```chmod +x mvnw```
 
 ### [Unix systems or Windows Git Bash terminal]
 The system has two components a server and an order generator:
@@ -25,12 +25,12 @@ The system has two components a server and an order generator:
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
-    ```java -jar orderserver/target/orderserver-1.0.jar```
+    ```java -jar orderserver/target/orderserver-1.1.jar```
     or choose the strategy matched
-    ```java -jar orderserver/target/orderserver-1.0.jar --orderserver.strategy=matched```
+    ```java -jar orderserver/target/orderserver-1.1.jar --orderserver.strategy=matched```
 
 3. Start the order generator system (see the args table)
-    ```java -jar orderserver/target/orderserver-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
+    ```java -jar ordergenerator/target/orderserver-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
     
     #### Generator Optional Arguments
     
