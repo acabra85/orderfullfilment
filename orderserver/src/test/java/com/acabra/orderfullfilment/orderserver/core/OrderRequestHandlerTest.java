@@ -27,7 +27,7 @@ class OrderRequestHandlerTest {
     }
 
     @Test
-    void mustRegisterAndPublish() throws InterruptedException {
+    void mustRegisterAndPublish() {
         //given
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         underTest.registerNotificationDeque(deque);
@@ -37,28 +37,30 @@ class OrderRequestHandlerTest {
         OrderReceivedEvent actual = (OrderReceivedEvent) deque.poll();
 
         //then
+        Assertions.assertThat(actual).isNotNull();
         Assertions.assertThat(actual.order).isEqualTo(orderStub);
     }
 
     @Test
-    void mustFailToPublish_givenNoDequeRegistered() throws InterruptedException {
+    void mustFailToPublish_givenNoDequeRegistered() {
         //given
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
 
         //when
         underTest.accept(requestStub);
 
-        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(() -> deque.poll(),
+        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(deque::poll,
                 CompletableFuture.delayedExecutor(200L, TimeUnit.MILLISECONDS));
         //then
         Assertions.assertThat(actual.join()).isNull();
     }
 
     @Test
-    void mustFailToPublish_givenDequeReportsException() throws InterruptedException {
+    @SuppressWarnings("unchecked")
+    void mustFailToPublish_givenDequeReportsException() {
         //given
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(OutputEvent.class));
+        Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(dequeMock);
 
         //when
@@ -69,7 +71,7 @@ class OrderRequestHandlerTest {
     }
 
     @Test
-    void mustNotPublishEvent_givenDeliveryRequestInvalid() throws InterruptedException {
+    void mustNotPublishEvent_givenDeliveryRequestInvalid() {
         //given
         DeliveryOrderRequestDTO invalid = new DeliveryOrderRequestDTO("", "", -1);
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
@@ -78,7 +80,7 @@ class OrderRequestHandlerTest {
         //when
         underTest.accept(invalid);
 
-        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(() -> deque.poll(),
+        CompletableFuture<OutputEvent> actual = CompletableFuture.supplyAsync(deque::poll,
                 CompletableFuture.delayedExecutor(200L, TimeUnit.MILLISECONDS));
         //then
         Assertions.assertThat(actual.join()).isNull();

@@ -19,11 +19,13 @@ class KitchenServiceImplTest {
 
     private KitchenService underTest;
     private final DeliveryOrder deliveryStub = DeliveryOrder.of("id-order-stub", "banana-split", 3);
-    private Deque<OutputEvent> mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
+    private Deque<OutputEvent> mockDeque;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         underTest = new KitchenServiceImpl();
+        mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
     }
 
     @AfterEach
@@ -97,7 +99,7 @@ class KitchenServiceImplTest {
     }
 
     @Test
-    void notificationMissedAfterPrepareMeal_exceptionThrown() throws ExecutionException, InterruptedException {
+    void notificationMissedAfterPrepareMeal_exceptionThrown() {
         //given
         Mockito.doThrow(RuntimeException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
@@ -119,7 +121,7 @@ class KitchenServiceImplTest {
     }
 
     @Test
-    void notificationMissedAfterPrepareMeal_interruptedDequeOperation() throws ExecutionException, InterruptedException {
+    void notificationMissedAfterPrepareMeal_interruptedDequeOperation() {
         //given
         Mockito.doThrow(RuntimeException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
@@ -141,7 +143,7 @@ class KitchenServiceImplTest {
     }
 
     @Test
-    void notificationMissedAfterPrepareMeal_noQueueAvailableForNotfication() throws ExecutionException, InterruptedException {
+    void notificationMissedAfterPrepareMeal_noQueueAvailableForNotification() throws ExecutionException, InterruptedException {
         //given
         long reservationId = underTest.provideReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();

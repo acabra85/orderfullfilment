@@ -53,7 +53,6 @@ public class StrategyFIFOIntegrationTest {
     @Test
     public void mustAssignOrdersFirstComeFirstServe() throws IOException {
         // given
-        int expectedOrdersDelivered = 3;
         ArrayList<Courier> couriers = readCouriersFromFileTestFile(resourceLoader, "classpath:it-test-couriers.json");
         List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile(resourceLoader, "classpath:it-test-orders.json");
 
