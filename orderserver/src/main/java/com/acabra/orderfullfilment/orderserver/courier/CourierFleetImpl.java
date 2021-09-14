@@ -84,7 +84,7 @@ public class CourierFleetImpl implements CourierFleet {
         courier.orderDelivered();
         this.dispatchedCouriers.remove(courierId);
         this.availableCouriers.offer(courier);
-        log.info("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
+        log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 
     private CompletableFuture<Boolean> schedule(int timeToDestination, int courierId) {
