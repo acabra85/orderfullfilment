@@ -45,7 +45,7 @@ The system has two components a server and an order generator:
     * **your_own_file**: provide a full path of your json file containing an array of Orders e.g. */mypath/to/file/orders.json*
     
     e.g.
-    ```java -jar orderserver/target/orderserver-1.0.jar /mypath/to/file/orders.json```
+    ```java -jar orderserver/target/orderserver-1.1.jar /mypath/to/file/orders.json```
     
 ### [Windows (CMD)]:
 Replace the command ```./mvnw``` for ```mvnw.cmd```.
