@@ -13,18 +13,18 @@ public class Courier {
     public final Integer id;
     public final String name;
 
-    private final AtomicReference<CourierStatus> status;
+    private boolean available;
 
     private Courier(Integer id, String name) {
         this.id = id;
         this.name = name;
-        this.status = new AtomicReference<>(CourierStatus.AVAILABLE);
+        this.available = true;
     }
 
     private Courier(Integer id, String name, CourierStatus status) {
         this.id = id;
         this.name = name;
-        this.status = new AtomicReference<>(status);
+        this.available = CourierStatus.AVAILABLE == status;
     }
 
     public static Courier ofDispatched(Integer id, String name) {
@@ -37,27 +37,26 @@ public class Courier {
     }
 
     public void dispatch() {
-        if(CourierStatus.DISPATCHED == this.status.get()) {
+        if(!available) {
             throw new IllegalStateException("Courier is already dispatched");
         }
-        this.status.set(CourierStatus.DISPATCHED);
+        this.available = false;
     }
 
     public void orderDelivered() {
-
-        if(CourierStatus.AVAILABLE == this.status.get()) {
+        if(available) {
             throw new IllegalStateException("Courier is already available");
         }
-        this.status.set(CourierStatus.AVAILABLE);
+        this.available = true;
         log.debug("Courier {} is now available", id);
     }
 
     public boolean isAvailable() {
-        return CourierStatus.AVAILABLE == this.status.get();
+        return available;
     }
 
     public CourierStatus getStatus() {
-        return this.status.get();
+        return available ? CourierStatus.AVAILABLE : CourierStatus.DISPATCHED;
     }
 
     @Override

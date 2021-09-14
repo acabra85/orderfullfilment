@@ -58,6 +58,7 @@ public class CourierFleetImpl implements CourierFleet {
     @Override
     public DispatchResult dispatch(DeliveryOrder order) {
         Courier courier = getAvailableCourier();
+        courier.dispatch();
         dispatchedCouriers.put(courier.id, courier);
         int estimatedTravelTime = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
         CompletableFuture<Boolean> schedule = this.schedule(estimatedTravelTime, courier.id);
@@ -82,7 +83,7 @@ public class CourierFleetImpl implements CourierFleet {
         }
         courier.orderDelivered();
         this.dispatchedCouriers.remove(courierId);
-        this.availableCouriers.add(courier);
+        this.availableCouriers.offer(courier);
         log.info("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 

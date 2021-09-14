@@ -16,11 +16,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -86,10 +83,10 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return Math.abs( snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered ) > 0;
     }
 
-    private ExecutorService startOutputEventProcessors(int threadCount, Deque<OutputEvent> deque) {
+    private ExecutorService startOutputEventProcessors(int threadCount, final Deque<OutputEvent> deque) {
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(threadCount);
-        OutputEventHandler command = new OutputEventHandler(0, deque);
-        scheduledExecutorService.scheduleAtFixedRate(command, 0, this.pollingTimeMillis, TimeUnit.MILLISECONDS);
+        OutputEventHandler outputEventHandler = new OutputEventHandler(deque);
+        scheduledExecutorService.scheduleAtFixedRate(outputEventHandler, 0, this.pollingTimeMillis, TimeUnit.MILLISECONDS);
         return scheduledExecutorService;
     }
 
@@ -152,7 +149,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                 log.info("[EVENT] order delivered: orderId[{}] by courierId[{}] at {}",
                         orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId,
                         KitchenClock.formatted(orderDeliveredEvent.createdAt));
-                CompletableFuture.runAsync(() -> courierService.processOrderDelivered(orderDeliveredEvent));
+                courierService.processOrderDelivered(orderDeliveredEvent);
                 break;
             case NO_PENDING_ORDERS:
                 reportAverageMetrics();
@@ -212,16 +209,20 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private class OutputEventHandler extends Thread {
         private final Deque<OutputEvent> deque;
 
-        private OutputEventHandler(final int id, final Deque<OutputEvent> deque) {
-            super("OutputEventHandlerThread " + id);
+        private OutputEventHandler(final Deque<OutputEvent> deque) {
+            super("OutputEventHandlerThread");
             this.deque = deque;
         }
 
         @Override
         public void run() {
-            OutputEvent take = deque.poll();
-            if(take != null) {
-                dispatchOutputEvent(take);
+            try {
+                OutputEvent take = deque.poll();
+                if(take != null) {
+                    dispatchOutputEvent(take);
+                }
+            } catch (Exception e) {
+                log.error("Error thrown while executing OutputEventHandler: " + e.getMessage(), e);
             }
         }
     }
