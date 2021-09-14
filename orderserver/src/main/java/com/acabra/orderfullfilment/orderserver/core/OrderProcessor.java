@@ -34,7 +34,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private final ExecutorService eventHandlerExecutor;
     private final long pollingTimeMillis;
     private final ExecutorService noMoreOrdersMonitor;
+    private final ExecutorService fixExecutor;
     private ApplicationContext context;
+    private final CompletableFuture<Void> completedHandle = new CompletableFuture<>();
 
     public OrderProcessor(OrderServerConfig orderServerConfig,
                           CourierDispatchService courierService,
@@ -44,7 +46,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         this.metricsProcessor = new MetricsProcessor();
         this.deque = deque;
         this.pollingTimeMillis = orderServerConfig.getPollingTimeMillis();
-        this.eventHandlerExecutor = startOutputEventProcessors(orderServerConfig.getThreadCount(), deque);
+        ExecutorService fixExecutor = Executors.newFixedThreadPool(orderServerConfig.getThreadCount());
+        this.fixExecutor = fixExecutor;
+        this.eventHandlerExecutor = startOutputEventProcessors(fixExecutor, deque);
         this.noMoreOrdersMonitor = startNoMoreOrdersMonitor(orderServerConfig.getPeriodShutDownMonitorSeconds(),
                 orderServerConfig.getPollingMaxRetries());
         this.courierService = courierService;
@@ -55,6 +59,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         orderHandler.registerNotificationDeque(deque);
     }
 
+    @SuppressWarnings("BusyWait")
     private ExecutorService startNoMoreOrdersMonitor(int periodShutDownMonitorSeconds, int pollingMaxRetries) {
         final ExecutorService noOrdersMonitorExecutor = Executors.newSingleThreadExecutor();
         final RetryBudget retryBudget = RetryBudget.of(pollingMaxRetries);
@@ -83,10 +88,10 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return Math.abs( snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered ) > 0;
     }
 
-    private ExecutorService startOutputEventProcessors(int threadCount, final Deque<OutputEvent> deque) {
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(threadCount);
-        OutputEventHandler outputEventHandler = new OutputEventHandler(deque);
-        scheduledExecutorService.scheduleAtFixedRate(outputEventHandler, 0, this.pollingTimeMillis, TimeUnit.MILLISECONDS);
+    private ExecutorService startOutputEventProcessors(ExecutorService executor, final Deque<OutputEvent> deque) {
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        scheduledExecutorService.scheduleAtFixedRate(() -> executor.submit(new OutputEventHandler(deque)), 0,
+                this.pollingTimeMillis, TimeUnit.MILLISECONDS);
         return scheduledExecutorService;
     }
 
@@ -174,8 +179,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
 
     private void reportAverageMetrics() {
         MetricsProcessor.DeliveryMetricsSnapshot snapshot = this.metricsProcessor.snapshot();
-        log.info(String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms",
-                snapshot.avgFoodWaitTime, snapshot.avgFoodWaitTime));
+        log.info(String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms, " +
+                        "Total Orders Received {}, Total Orders Delivered {}", snapshot.avgFoodWaitTime,
+                snapshot.avgFoodWaitTime), snapshot.totalOrdersReceived, snapshot.totalOrdersDelivered);
     }
 
     @Override
@@ -184,11 +190,13 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
             log.info("[SYSTEM] queue processing shutting down, no orders remaining");
             this.noMoreOrdersMonitor.shutdown();
             this.eventHandlerExecutor.shutdown();
+            this.fixExecutor.shutdown();
             this.courierService.shutdown();
             this.kitchenService.shutdown();
             if(null != this.context) {
                 System.exit(SpringApplication.exit(this.context, () -> 0));
             }
+            this.completedHandle.complete(null);
         }
     }
 
@@ -204,6 +212,10 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.context = applicationContext;
+    }
+
+    public CompletableFuture<Void> getCompletedHandle() {
+        return this.completedHandle;
     }
 
     private class OutputEventHandler extends Thread {

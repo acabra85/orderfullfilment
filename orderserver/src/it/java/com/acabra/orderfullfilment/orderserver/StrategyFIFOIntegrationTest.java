@@ -51,7 +51,7 @@ public class StrategyFIFOIntegrationTest {
      *
      */
     @Test
-    public void mustAssignOrdersFirstComeFirstServe() throws IOException, InterruptedException {
+    public void mustAssignOrdersFirstComeFirstServe() throws IOException {
         // given
         int expectedOrdersDelivered = 3;
         ArrayList<Courier> couriers = readCouriersFromFileTestFile(resourceLoader, "classpath:it-test-couriers.json");
@@ -73,7 +73,7 @@ public class StrategyFIFOIntegrationTest {
         //when
         ScheduledExecutorService scheduledExecutorService =
                 submitTheOrdersAtARateOf2PerSecond(orderHandler, ordersIterator);
-        awaitTermination(10000L);
+        processor.getCompletedHandle().join();
 
         //then
         MetricsProcessor.DeliveryMetricsSnapshot actual = processor.getMetricsSnapshot();

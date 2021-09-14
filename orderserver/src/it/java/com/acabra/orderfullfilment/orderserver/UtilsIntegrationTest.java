@@ -50,20 +50,6 @@ public class UtilsIntegrationTest {
         return executorService;
     }
 
-    static void awaitTermination(long timeInMills) throws InterruptedException {
-        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                Thread.sleep(timeInMills);
-            } catch (Exception e) {
-                throw new RuntimeException();
-            }
-            return null;
-        });
-        while (!future.isDone()) {
-            Thread.sleep(3000);
-        }
-    }
-
     static EtaEstimator buildPredictableEstimatorMock(ArrayList<Courier> couriers, HashMap<String, Integer> travelTimesSeconds) {
         EtaEstimator estimatorMock = Mockito.mock(EtaEstimator.class);
         couriers.forEach(courier -> Mockito.when(estimatorMock.estimateCourierTravelTimeInSeconds(courier))
