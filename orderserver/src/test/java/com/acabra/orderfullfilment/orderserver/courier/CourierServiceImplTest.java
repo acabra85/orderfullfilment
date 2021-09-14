@@ -93,7 +93,7 @@ class CourierServiceImplTest {
                 .registerNotificationDeque(mockDeque);
         underTest.registerNotificationDeque(mockDeque);
 
-        CompletableFuture<Boolean> future = underTest.processOrderPrepared(VALID_ORDER_PREPARED_EVENT);
+        CompletableFuture<Boolean> future = CompletableFuture.completedFuture(underTest.processOrderPrepared(VALID_ORDER_PREPARED_EVENT));
         //when
         boolean actual = future.get();
 
@@ -121,10 +121,10 @@ class CourierServiceImplTest {
                 .release(0);
 
         //when
-        CompletableFuture<Void> future = underTest.processOrderDelivered(deliveryEventMock);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> underTest.processOrderDelivered(deliveryEventMock));
 
         //then
-        ThrowableAssert.ThrowingCallable throwingCallable = () -> future.join();
+        ThrowableAssert.ThrowingCallable throwingCallable = future::join;
 
         //verify
         Assertions.assertThatThrownBy(throwingCallable)
@@ -145,7 +145,7 @@ class CourierServiceImplTest {
                 .release(0);
 
         //when
-        CompletableFuture<Void> future = underTest.processOrderDelivered(deliveryEventMock);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> underTest.processOrderDelivered(deliveryEventMock));
 
         //then
         future.get();

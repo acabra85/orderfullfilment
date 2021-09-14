@@ -8,9 +8,7 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -18,11 +16,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
 import java.util.Deque;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Service
 @Slf4j
@@ -88,18 +83,16 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return Math.abs( snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered ) > 0;
     }
 
-    private ExecutorService startOutputEventProcessors(int threadCount, Deque<OutputEvent> deque) {
+    private ExecutorService startOutputEventProcessors(int threadCount, final Deque<OutputEvent> deque) {
         ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(threadCount);
-        List<OutputEventHandler> tasks = IntStream.range(0, threadCount)
-                .mapToObj(i -> new OutputEventHandler(i, deque))
-                .collect(Collectors.toList());
-        tasks.forEach(t -> scheduledExecutorService.scheduleAtFixedRate(t, 0, t.POLLING_TIME_MILLIS, TimeUnit.MILLISECONDS));
+        OutputEventHandler outputEventHandler = new OutputEventHandler(deque);
+        scheduledExecutorService.scheduleAtFixedRate(outputEventHandler, 0, this.pollingTimeMillis, TimeUnit.MILLISECONDS);
         return scheduledExecutorService;
     }
 
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
-        final long reservationId = kitchenService.proviedReservationId(order);
+        final long reservationId = kitchenService.provideReservationId(order);
         CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture
                 .supplyAsync(() -> courierService.dispatchRequest(order, reservationId));
         return courierDispatch.thenApply(courierId -> {
@@ -135,13 +128,13 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                 OrderPreparedEvent orderPreparedEvent = (OrderPreparedEvent) outputEvent;
                 log.info("[EVENT] order prepared: mealId[{}], orderId[{}] at {}", orderPreparedEvent.mealOrderId,
                     orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
-                courierService.processOrderPrepared(orderPreparedEvent).join();
+                courierService.processOrderPrepared(orderPreparedEvent);
                 break;
             case COURIER_ARRIVED:
                 CourierArrivedEvent courierArrivedEvent = (CourierArrivedEvent) outputEvent;
                 log.info("[EVENT] courier arrived id[{}], for pickup at {}ms", courierArrivedEvent.courierId,
                         KitchenClock.formatted(courierArrivedEvent.createdAt));
-                courierService.processCourierArrived(courierArrivedEvent).join();
+                courierService.processCourierArrived(courierArrivedEvent);
                 break;
             case ORDER_PICKED_UP:
                 OrderPickedUpEvent orderPickedUpEvent = (OrderPickedUpEvent) outputEvent;
@@ -156,7 +149,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                 log.info("[EVENT] order delivered: orderId[{}] by courierId[{}] at {}",
                         orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId,
                         KitchenClock.formatted(orderDeliveredEvent.createdAt));
-                courierService.processOrderDelivered(orderDeliveredEvent).join();
+                courierService.processOrderDelivered(orderDeliveredEvent);
                 break;
             case NO_PENDING_ORDERS:
                 reportAverageMetrics();
@@ -174,11 +167,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
 
     private void reportPickupMetrics(OrderPickedUpEvent orderPickedUpEvent) {
         this.metricsProcessor.acceptFoodWaitTime(orderPickedUpEvent.foodWaitTime);
-        log.info("[METRICS] Food wait time: {}ms, order {}", orderPickedUpEvent.foodWaitTime,
-                orderPickedUpEvent.mealOrderId);
         this.metricsProcessor.acceptCourierWaitTime(orderPickedUpEvent.courierWaitTime);
-        log.info("[METRICS] Courier wait time {}ms on orderId:[{}]", orderPickedUpEvent.courierWaitTime,
-                orderPickedUpEvent.mealOrderId);
+        log.info("[METRICS] Food wait time: {}ms - Courier wait time {}ms, orderId [{}]", orderPickedUpEvent.foodWaitTime,
+                orderPickedUpEvent.courierWaitTime, orderPickedUpEvent.mealOrderId);
     }
 
     private void reportAverageMetrics() {
@@ -193,6 +184,8 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
             log.info("[SYSTEM] queue processing shutting down, no orders remaining");
             this.noMoreOrdersMonitor.shutdown();
             this.eventHandlerExecutor.shutdown();
+            this.courierService.shutdown();
+            this.kitchenService.shutdown();
             if(null != this.context) {
                 System.exit(SpringApplication.exit(this.context, () -> 0));
             }
@@ -214,23 +207,23 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     }
 
     private class OutputEventHandler extends Thread {
-        private final long POLLING_TIME_MILLIS = OrderProcessor.this.pollingTimeMillis;
         private final Deque<OutputEvent> deque;
-        private volatile boolean finish;
 
-        private OutputEventHandler(final int id, final Deque<OutputEvent> deque) {
-            super("OutputEventHandlerThread " + id);
+        private OutputEventHandler(final Deque<OutputEvent> deque) {
+            super("OutputEventHandlerThread");
             this.deque = deque;
         }
 
         @Override
         public void run() {
-            log.debug("{} started", this);
-            OutputEvent take = deque.poll();
-            if(take != null) {
-                dispatchOutputEvent(take);
+            try {
+                OutputEvent take = deque.poll();
+                if(take != null) {
+                    dispatchOutputEvent(take);
+                }
+            } catch (Exception e) {
+                log.error("Error thrown while executing OutputEventHandler: " + e.getMessage(), e);
             }
-            log.debug("{} released", this);
         }
     }
 }

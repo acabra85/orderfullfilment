@@ -8,6 +8,8 @@ import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.ThrowableAssert;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -23,7 +25,6 @@ import java.util.stream.IntStream;
 
 class CourierFleetImplTest {
 
-    public static final Courier ANY_COURIER = Mockito.any(Courier.class);
     private CourierFleet underTest;
 
     private final DeliveryOrder validOrder = DeliveryOrder.of("order-it-test", "my-meal", 3131221);
@@ -32,60 +33,66 @@ class CourierFleetImplTest {
     @BeforeEach
     public void setup() {
         int fixedTravelTime = 3;
-        Mockito.doReturn(fixedTravelTime).when(etaEstimatorMock).estimateCourierTravelTimeInSeconds(ANY_COURIER);
+        Mockito.doReturn(fixedTravelTime).when(etaEstimatorMock).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+    }
+
+    @AfterEach
+    public void teardown() {
+        underTest.shutdown();
     }
 
     @Test
-    void mustReturnNull_noCouriersAvailable() {
+    void mustDispatchANewCourier_givenAllExistingCouriersAreDispatched() {
         //given
-        List<Courier> list = buildCourierList(4, CourierStatus.DISPATCHED);
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        List<Courier> originalCouriers = buildCourierList(4, CourierStatus.DISPATCHED);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(list.size());
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
 
         //when
         Integer actual = underTest.dispatch(validOrder).courierId;
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTimeInSeconds(ANY_COURIER);
-        Assertions.assertThat(underTest).isNotNull();
-        Assertions.assertThat(actual).isNull();
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(list.size());
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(actual).isEqualTo(5);
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size() + 1);
+        Assertions.assertThat(originalCouriers.stream().noneMatch(Courier::isAvailable)).isTrue();
     }
 
     @Test
     void mustReturn0_couriersAvailable() {
         //given
-        List<Courier> list = buildCourierList(4, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        List<Courier> originalCouriers = buildCourierList(4, CourierStatus.AVAILABLE);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
         int totalAvailableBefore = underTest.availableCouriers();
-        Assertions.assertThat(totalAvailableBefore).isEqualTo(list.size());
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(list.size());
+        Assertions.assertThat(totalAvailableBefore).isEqualTo(originalCouriers.size());
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
 
         //when
         Integer actual = underTest.dispatch(validOrder).courierId;
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
-        Assertions.assertThat(underTest).isNotNull();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(originalCouriers.stream().filter(c->!c.isAvailable()).count()).isEqualTo(1);
         Assertions.assertThat(actual).isEqualTo(0);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(totalAvailableBefore - 1);
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(list.size());
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
     }
 
 
     @Test
-    void mustReturnFailAfter4Calls_noMoreCouriersAvailable() {
+    void mustDispatchAllCouriers_unlimitedCouriersAvailable() {
         //given
-        int expectedSize = 4;
-        List<Courier> availableCouriers = buildCourierList(expectedSize, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(availableCouriers, etaEstimatorMock);
+        int startingCouriers = 4;
+        List<Courier> originalCouriers = buildCourierList(startingCouriers, CourierStatus.AVAILABLE);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
         int totalAvailableBefore = underTest.availableCouriers();
-        Assertions.assertThat(totalAvailableBefore).isEqualTo(availableCouriers.size());
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(availableCouriers.size());
+        Assertions.assertThat(totalAvailableBefore).isEqualTo(originalCouriers.size());
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
 
         //when
-        List<Long> dispatched = IntStream.range(0, 10)
+        int ordersRequests = 10;
+        List<Long> dispatched = IntStream.range(0, ordersRequests)
                 .mapToObj(elm -> underTest.dispatch(validOrder))
                 .filter(elm -> elm.courierId != null)
                 .mapToLong(elm -> Long.valueOf(elm.courierId))
@@ -93,10 +100,11 @@ class CourierFleetImplTest {
                 .collect(Collectors.toList());
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(expectedSize)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
-        Assertions.assertThat(dispatched.size()).isEqualTo(expectedSize);
+        Mockito.verify(etaEstimatorMock, Mockito.times(ordersRequests)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(originalCouriers.stream().noneMatch(Courier::isAvailable)).isTrue();
+        Assertions.assertThat(dispatched.size()).isEqualTo(ordersRequests);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
-        Assertions.assertThat(underTest.fleetSize()).isEqualTo(availableCouriers.size());
+        Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size() + (ordersRequests - startingCouriers));
     }
 
     @Test
@@ -110,14 +118,14 @@ class CourierFleetImplTest {
         //when
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTimeInSeconds(ANY_COURIER);
+        Mockito.verify(etaEstimatorMock, Mockito.never()).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Assertions.assertThatExceptionOfType(NoSuchElementException.class)
                 .isThrownBy(() -> underTest.release(courierIdInvalid))
                 .withMessageContaining("does not correspond to an assigned courier");
     }
 
     @Test
-    void mustSucceed_givenCourierIdIsAssigned() {
+    void mustSucceedReleaseOneCourier_givenAllCouriersDispatched() {
         //given
         List<Courier> list = buildCourierList(4, CourierStatus.DISPATCHED);
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
@@ -130,7 +138,6 @@ class CourierFleetImplTest {
 
         //then
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(1 + totalAvailableBefore);
-
     }
 
     @Test
@@ -141,14 +148,17 @@ class CourierFleetImplTest {
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
         underTest.registerNotificationDeque(deque);
         int expectedCourierId = 0;
-        CompletableFuture<OutputEvent> future = CompletableFuture.supplyAsync(() -> deque.poll());
 
         //when
-        Integer actualCourierId = underTest.dispatch(validOrder).courierId;
-        CourierArrivedEvent actualEvent = (CourierArrivedEvent) future.get();
+        DispatchResult dispatch = underTest.dispatch(validOrder);
+
+        Integer actualCourierId = dispatch.courierId;
+        Assertions.assertThat(dispatch.notificationFuture.get()).isTrue();
+        CourierArrivedEvent actualEvent = (CourierArrivedEvent) deque.poll();
 
         //then
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
+        Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
         Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
 
@@ -171,14 +181,14 @@ class CourierFleetImplTest {
 
         //when
         DispatchResult actualDispatchResult = underTest.dispatch(validOrder);
-        Integer actualCourierId = actualDispatchResult.courierId;
 
         //then
-        Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
+        Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
+        Assertions.assertThat(actualDispatchResult.courierId).isEqualTo(expectedCourierId);
         Assertions.assertThatThrownBy(actualDispatchResult.notificationFuture::get)
-                .isInstanceOf(ExecutionException.class)
-                .hasMessageContaining("RuntimeException");
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
+                .hasRootCauseInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to publish the notification");
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
@@ -188,7 +198,7 @@ class CourierFleetImplTest {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
-        Mockito.doThrow(InterruptedException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
+        Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
         underTest = new CourierFleetImpl(list, etaEstimatorMock);
         underTest.registerNotificationDeque(dequeMock);
@@ -197,12 +207,15 @@ class CourierFleetImplTest {
 
         //when
         DispatchResult actualDispatchResult = underTest.dispatch(validOrder);
-        Integer actualCourierId = actualDispatchResult.courierId;
+        ThrowableAssert.ThrowingCallable throwingCallable = actualDispatchResult.notificationFuture::get;
 
         //then
-        Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
-        Assertions.assertThat(actualDispatchResult.notificationFuture.get()).isFalse();
-        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(ANY_COURIER);
+        Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
+        Assertions.assertThat(actualDispatchResult.courierId).isEqualTo(expectedCourierId);
+        Assertions.assertThatThrownBy(throwingCallable)
+                .hasRootCauseInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to publish the notification");
+        Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
@@ -217,16 +230,12 @@ class CourierFleetImplTest {
 
         //when
         DispatchResult actualDispatchResult = underTest.dispatch(validOrder);
-        Integer actualCourierId = actualDispatchResult.courierId;
 
         //then
-        Assertions.assertThat(actualCourierId).isEqualTo(expectedCourierId);
+        Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
+        Assertions.assertThat(actualDispatchResult.courierId).isEqualTo(expectedCourierId);
         Assertions.assertThat(actualDispatchResult.notificationFuture.get()).isFalse();
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
-    }
-
-    @Test
-    public void mustFail() {
     }
 
     private List<Courier> buildCourierList(int size, CourierStatus status) {

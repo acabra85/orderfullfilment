@@ -40,4 +40,9 @@ public interface CourierFleet {
      * Registration of the notification queue to be used to publish the Ready for Pickup event
      */
     void registerNotificationDeque(Deque<OutputEvent> deque);
+
+    /**
+     * Request system shutdown, no more couriers will be dispatched, and couriers on queue will be discarded
+     */
+    void shutdown();
 }

@@ -7,7 +7,7 @@ This is a real time simulator of a food delivery order systems.
 - Java JDK 11 or higher is installed https://adoptopenjdsk.net/installation.html
 - Test the installation with this command ```java -version```
 - place your terminal in the root of the project (cd orderfullfilment)
-- assign execute permissions to the .mvnw file ```chmod +x mvnw```
+- assign execute permissions to the mvnw file ```chmod +x mvnw```
 
 ### [Unix systems or Windows Git Bash terminal]
 The system has two components a server and an order generator:
@@ -21,16 +21,16 @@ The system has two components a server and an order generator:
    #### Server Optional Arguments
 
    |Name|Description|Values|Default|
-       |---|---|---|---|
+   |---|---|---|---|
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
-    ```java -jar orderserver/target/orderserver-1.0.jar```
+    ```java -jar orderserver/target/orderserver-1.2.jar```
     or choose the strategy matched
-    ```java -jar orderserver/target/orderserver-1.0.jar --orderserver.strategy=matched```
+    ```java -jar orderserver/target/orderserver-1.2.jar --orderserver.strategy=matched```
 
 3. Start the order generator system (see the args table)
-    ```java -jar orderserver/target/orderserver-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
+    ```java -jar ordergenerator/target/ordergenerator-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
     
     #### Generator Optional Arguments
     
@@ -45,8 +45,8 @@ The system has two components a server and an order generator:
     * **your_own_file**: provide a full path of your json file containing an array of Orders e.g. */mypath/to/file/orders.json*
     
     e.g.
-    ```java -jar orderserver/target/orderserver-1.0.jar /mypath/to/file/orders.json```
-    
+    ```java -jar ordergenerator/target/ordergenerator-1.0.jar /mypath/to/file/orders.json```
+
 ### [Windows (CMD)]:
 Replace the command ```./mvnw``` for ```mvnw.cmd```.
 
@@ -124,4 +124,4 @@ For a detail of the configuration of the server system take a look at [applicati
 
 It is possible to run the server with a different configuration by launching the application with the parameter **--spring.config.location**
 e.g.
-```java -jar orderserver/target/orderserver-1.0.jar --spring.config.location=/fullpath/to/file/application.properties```
+```java -jar orderserver/target/orderserver-1.2.jar --spring.config.location=/fullpath/to/file/application.properties```

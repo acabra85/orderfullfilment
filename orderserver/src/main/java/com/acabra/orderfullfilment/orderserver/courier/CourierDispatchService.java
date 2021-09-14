@@ -4,7 +4,6 @@ import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 public interface CourierDispatchService extends OutputEventPublisher {
 
@@ -23,7 +22,7 @@ public interface CourierDispatchService extends OutputEventPublisher {
      * @param mealReadyEvent the details of the meal prepared
      * @return a completable future of boolean indicating if the event was accepted or not
      */
-    CompletableFuture<Boolean> processOrderPrepared(OrderPreparedEvent mealReadyEvent);
+    boolean processOrderPrepared(OrderPreparedEvent mealReadyEvent);
 
     /**
      * Dispatch service releases the assignment from the courier
@@ -31,7 +30,7 @@ public interface CourierDispatchService extends OutputEventPublisher {
      * @return a handle to allow callers to take action upon completion, the handle can complete with exceptions if the
      *         courierId is not valid
      */
-    CompletableFuture<Void> processOrderDelivered(OrderDeliveredEvent orderDeliveredEvent);
+     void processOrderDelivered(OrderDeliveredEvent orderDeliveredEvent);
 
     /**
      * According to the defined strategy matches the courier with the corresponding order or to await for an order to
@@ -40,11 +39,16 @@ public interface CourierDispatchService extends OutputEventPublisher {
      * @return a handle to allow callers take action upon completion, indicates whether the event was accepted by
      * the service
      */
-    CompletableFuture<Boolean> processCourierArrived(CourierArrivedEvent courierArrivedEvent);
+    boolean processCourierArrived(CourierArrivedEvent courierArrivedEvent);
 
     /**
      * Notifies the courier service of the courierDispatched event, this allows
      * @param courierDispatchedEvent
      */
     void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent);
+
+    /**
+     * Request the shutdown of operations, (e.g. attempts to dispatch couriers)
+     */
+    void shutdown();
 }

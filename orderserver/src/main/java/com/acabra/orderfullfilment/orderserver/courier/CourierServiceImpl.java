@@ -54,21 +54,18 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public CompletableFuture<Boolean> processOrderPrepared(OrderPreparedEvent orderPreparedEvent) {
-        return CompletableFuture.supplyAsync(
-                () -> orderCourierMatcher.acceptOrderPreparedEvent(orderPreparedEvent));
+    public boolean processOrderPrepared(OrderPreparedEvent orderPreparedEvent) {
+        return orderCourierMatcher.acceptOrderPreparedEvent(orderPreparedEvent);
     }
 
     @Override
-    public CompletableFuture<Boolean> processCourierArrived(CourierArrivedEvent courierArrivedEvent) {
-        return CompletableFuture.supplyAsync(() ->
-                this.orderCourierMatcher.acceptCourierArrivedEvent(courierArrivedEvent));
+    public boolean processCourierArrived(CourierArrivedEvent courierArrivedEvent) {
+        return this.orderCourierMatcher.acceptCourierArrivedEvent(courierArrivedEvent);
     }
 
     @Override
-    public CompletableFuture<Void> processOrderDelivered(OrderDeliveredEvent orderDeliveredEvent) {
-        return CompletableFuture.runAsync(
-                () -> courierFleet.release(orderDeliveredEvent.getCourierId()));
+    public void processOrderDelivered(OrderDeliveredEvent orderDeliveredEvent) {
+        courierFleet.release(orderDeliveredEvent.getCourierId());
     }
 
     @Override
@@ -81,5 +78,11 @@ public class CourierServiceImpl implements CourierDispatchService {
     @Override
     public void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent) {
         this.orderCourierMatcher.processCourierDispatchedEvent(courierDispatchedEvent);
+    }
+
+    @Override
+    public void shutdown() {
+        this.courierFleet.shutdown();
+        log.info("Courier service shut down");
     }
 }

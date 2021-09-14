@@ -51,7 +51,7 @@ public class UtilsIntegrationTest {
     }
 
     static void awaitTermination(long timeInMills) throws InterruptedException {
-        CompletableFuture<MetricsProcessor.DeliveryMetricsSnapshot> future = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<Void> future = CompletableFuture.supplyAsync(() -> {
             try {
                 Thread.sleep(timeInMills);
             } catch (Exception e) {

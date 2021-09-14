@@ -13,7 +13,7 @@ public interface KitchenService extends OutputEventPublisher {
      * @param order the delivery order
      * @return id of the reservation
      */
-    long proviedReservationId(DeliveryOrder order);
+    long provideReservationId(DeliveryOrder order);
 
     /**
      * Cancels the reservation order to cook a meal
@@ -34,4 +34,9 @@ public interface KitchenService extends OutputEventPublisher {
      * @return true if no meals are being prepared.
      */
     boolean isKitchenIdle();
+
+    /**
+     * Request the shutdown of operations (e.g. such as cooking meals)
+     */
+    void shutdown();
 }

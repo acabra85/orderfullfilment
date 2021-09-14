@@ -17,6 +17,7 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -73,10 +74,12 @@ public class StrategyMatchedIntegrationTest {
         MetricsProcessor.DeliveryMetricsSnapshot actual = processor.getMetricsSnapshot();
 
         //verify
-        Mockito.verify(estimatorMock, Mockito.times(3)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Mockito.verify(estimatorMock, Mockito.times(orders.size())).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
-        Assertions.assertThat(actual.totalOrdersDelivered).isEqualTo(expectedOrdersDelivered);
+        Assertions.assertThat(actual.totalOrdersDelivered).isEqualTo(orders.size());
         Assertions.assertThat(actual.totalOrdersReceived).isEqualTo(orders.size());
+        Assertions.assertThat(actual.avgFoodWaitTime).isCloseTo(2000.0d, Offset.offset(2000.0));
+        Assertions.assertThat(actual.avgCourierWaitTime).isCloseTo(2000.0d, Offset.offset(2000.0));
     }
 
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock,

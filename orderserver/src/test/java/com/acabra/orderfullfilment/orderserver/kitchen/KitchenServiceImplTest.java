@@ -5,6 +5,7 @@ import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -25,10 +26,15 @@ class KitchenServiceImplTest {
         underTest = new KitchenServiceImpl();
     }
 
+    @AfterEach
+    public void tearDown() {
+        underTest.shutdown();
+    }
+
     @Test
     void mustReturnTrue_cancelReservationWithValidNumber() {
         //given
-        long reservationId = underTest.proviedReservationId(deliveryStub);
+        long reservationId = underTest.provideReservationId(deliveryStub);
 
         //when
         boolean actual = underTest.cancelCookReservation(reservationId);
@@ -72,10 +78,10 @@ class KitchenServiceImplTest {
     @Test
     void notificationSentAfterPrepareMeal() throws ExecutionException, InterruptedException {
         //given
-        Mockito.doNothing().when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
+        Mockito.doReturn(true).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
 
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.proviedReservationId(deliveryStub);
+        long reservationId = underTest.provideReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
@@ -95,18 +101,19 @@ class KitchenServiceImplTest {
         //given
         Mockito.doThrow(RuntimeException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.proviedReservationId(deliveryStub);
+        long reservationId = underTest.provideReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
         CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
-        ThrowableAssert.ThrowingCallable throwsException = () -> cookHandle.get();
+        ThrowableAssert.ThrowingCallable throwsException = cookHandle::get;
 
         //then
         Assertions.assertThatThrownBy(throwsException)
-                .isInstanceOf(ExecutionException.class)
-                .hasMessageContaining("RuntimeException");
+                .hasRootCauseInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Unable to notify food ready for pickup");
+        Assertions.assertThat(cookHandle.isCompletedExceptionally()).isTrue();
         Mockito.verify(mockDeque, Mockito.times(1)).offer(Mockito.any(OrderPreparedEvent.class));
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
     }
@@ -114,34 +121,39 @@ class KitchenServiceImplTest {
     @Test
     void notificationMissedAfterPrepareMeal_interruptedDequeOperation() throws ExecutionException, InterruptedException {
         //given
-        Mockito.doThrow(InterruptedException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
+        Mockito.doThrow(RuntimeException.class).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
         underTest.registerNotificationDeque(mockDeque);
-        long reservationId = underTest.proviedReservationId(deliveryStub);
+        long reservationId = underTest.provideReservationId(deliveryStub);
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
         CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
-        Boolean notificationResult = cookHandle.get();
+        ThrowableAssert.ThrowingCallable throwingCallable = cookHandle::get;
 
         //then
+        Assertions.assertThatThrownBy(throwingCallable)
+                        .hasRootCauseInstanceOf(RuntimeException.class)
+                                .hasMessageContaining("Unable to notify food ready for pickup");
         Mockito.verify(mockDeque, Mockito.times(1)).offer(Mockito.any(OrderPreparedEvent.class));
-        Assertions.assertThat(notificationResult).isFalse();
+        Assertions.assertThat(cookHandle.isCompletedExceptionally()).isTrue();
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
     }
 
     @Test
-    void prepareMeal() {
+    void notificationMissedAfterPrepareMeal_noQueueAvailableForNotfication() throws ExecutionException, InterruptedException {
         //given
-        long reservationId = underTest.proviedReservationId(deliveryStub);
-        underTest.prepareMeal(reservationId);
-    }
+        long reservationId = underTest.provideReservationId(deliveryStub);
+        Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
-    @Test
-    void cancelCookReservation() {
-    }
+        //when
+        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
+        Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
+        cookHandle.get();
 
-    @Test
-    void registerMealNotificationReadyQueue() {
+        //then
+        Mockito.verifyNoInteractions(mockDeque);
+        Assertions.assertThat(cookHandle.isCompletedExceptionally()).isFalse();
+        Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
     }
 }
