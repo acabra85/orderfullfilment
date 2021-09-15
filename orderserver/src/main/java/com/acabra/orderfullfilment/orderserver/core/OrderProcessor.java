@@ -1,6 +1,9 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
+import com.acabra.orderfullfilment.orderserver.core.executor.NoMoreOrdersMonitor;
+import com.acabra.orderfullfilment.orderserver.core.executor.OrderExecutorAssistant;
+import com.acabra.orderfullfilment.orderserver.core.executor.OutputEventHandler;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
@@ -18,6 +21,8 @@ import org.springframework.stereotype.Service;
 import java.util.Deque;
 import java.util.Optional;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Service
 @Slf4j
@@ -30,11 +35,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private final CourierDispatchService courierService;
     private final KitchenService kitchenService;
     private final MetricsProcessor metricsProcessor;
-    private final Deque<OutputEvent> deque;
-    private final ExecutorService eventHandlerExecutor;
-    private final long pollingTimeMillis;
-    private final ExecutorService noMoreOrdersMonitor;
-    private final ExecutorService fixExecutor;
+    private final OrderExecutorAssistant executorAssistant;
     private ApplicationContext context;
     private final CompletableFuture<Void> completedHandle = new CompletableFuture<>();
 
@@ -44,55 +45,27 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                           @Qualifier("order_handler") OutputEventPublisher orderHandler,
                           @Qualifier("notification_deque") Deque<OutputEvent> deque) {
         this.metricsProcessor = new MetricsProcessor();
-        this.deque = deque;
-        this.pollingTimeMillis = orderServerConfig.getPollingTimeMillis();
-        ExecutorService fixExecutor = Executors.newFixedThreadPool(orderServerConfig.getThreadCount());
-        this.fixExecutor = fixExecutor;
-        this.eventHandlerExecutor = startOutputEventProcessors(fixExecutor, deque);
-        this.noMoreOrdersMonitor = startNoMoreOrdersMonitor(orderServerConfig.getPeriodShutDownMonitorSeconds(),
-                orderServerConfig.getPollingMaxRetries());
         this.courierService = courierService;
         this.kitchenService = kitchenService;
         //register public notification queue
         this.courierService.registerNotificationDeque(deque);
         this.kitchenService.registerNotificationDeque(deque);
         orderHandler.registerNotificationDeque(deque);
+        this.executorAssistant = buildExecutorAssistant(orderServerConfig, deque);
     }
 
-    @SuppressWarnings("BusyWait")
-    private ExecutorService startNoMoreOrdersMonitor(int periodShutDownMonitorSeconds, int pollingMaxRetries) {
-        final ExecutorService noOrdersMonitorExecutor = Executors.newSingleThreadExecutor();
-        final RetryBudget retryBudget = RetryBudget.of(pollingMaxRetries);
-        CompletableFuture.runAsync(() -> {
-            log.info("[SYSTEM] Monitoring delivery queue");
-            while (retryBudget.hasMoreTokens()) {
-                try {
-                    if(!this.hasPendingDeliveryOrders()) {
-                        retryBudget.spendRetryToken();
-                    } else {
-                        retryBudget.success();
-                    }
-                    Thread.sleep(periodShutDownMonitorSeconds);
-                } catch (InterruptedException e) {
-                    log.error("Thread interrupted: {}", e.getMessage(), e);
-                }
-            }
-            this.deque.offer(new OutputEvent(EventType.NO_PENDING_ORDERS, KitchenClock.now()) {});
-            log.info("[SYSTEM] no orders awaiting delivery");
-        }, noOrdersMonitorExecutor);
-        return noOrdersMonitorExecutor;
+    private OrderExecutorAssistant buildExecutorAssistant(OrderServerConfig config, Deque<OutputEvent> deque) {
+        int maxRetries = config.getPollingMaxRetries();
+        Consumer<OutputEvent> dispatchOutputEvent = this::dispatchOutputEvent;
+        OutputEventHandler outputEventTask = new OutputEventHandler(deque, dispatchOutputEvent);
+        Supplier<Boolean> hasPendingDeliveryOrders = this::hasPendingDeliveryOrders;
+        NoMoreOrdersMonitor noMoreOrdersTask = new NoMoreOrdersMonitor(maxRetries, hasPendingDeliveryOrders, deque);
+        return new OrderExecutorAssistant(config, outputEventTask, noMoreOrdersTask);
     }
 
     private boolean hasPendingDeliveryOrders() {
         MetricsProcessor.DeliveryMetricsSnapshot snapshot = this.metricsProcessor.snapshot();
-        return Math.abs( snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered ) > 0;
-    }
-
-    private ExecutorService startOutputEventProcessors(ExecutorService executor, final Deque<OutputEvent> deque) {
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        scheduledExecutorService.scheduleAtFixedRate(() -> executor.submit(new OutputEventHandler(deque)), 0,
-                this.pollingTimeMillis, TimeUnit.MILLISECONDS);
-        return scheduledExecutorService;
+        return snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered > 0;
     }
 
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
@@ -186,11 +159,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
 
     @Override
     public void close() {
-        if (!this.noMoreOrdersMonitor.isTerminated()) {
+        if (!this.executorAssistant.isOrdersMonitorTerminated()) {
             log.info("[SYSTEM] queue processing shutting down, no orders remaining");
-            this.noMoreOrdersMonitor.shutdown();
-            this.eventHandlerExecutor.shutdown();
-            this.fixExecutor.shutdown();
+            this.executorAssistant.shutdown();
             this.courierService.shutdown();
             this.kitchenService.shutdown();
             if(null != this.context) {
@@ -218,24 +189,4 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return this.completedHandle;
     }
 
-    private class OutputEventHandler extends Thread {
-        private final Deque<OutputEvent> deque;
-
-        private OutputEventHandler(final Deque<OutputEvent> deque) {
-            super("OutputEventHandlerThread");
-            this.deque = deque;
-        }
-
-        @Override
-        public void run() {
-            try {
-                OutputEvent take = deque.poll();
-                if(take != null) {
-                    dispatchOutputEvent(take);
-                }
-            } catch (Exception e) {
-                log.error("Error thrown while executing OutputEventHandler: " + e.getMessage(), e);
-            }
-        }
-    }
 }

@@ -58,17 +58,4 @@ public class Courier {
     public CourierStatus getStatus() {
         return available ? CourierStatus.AVAILABLE : CourierStatus.DISPATCHED;
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Courier courier = (Courier) o;
-        return id.equals(courier.id) && name.equals(courier.name);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name);
-    }
 }

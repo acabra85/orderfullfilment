@@ -1,27 +1,28 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
+import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-
-import java.util.concurrent.*;
-
+import com.google.inject.internal.util.Function;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import org.springframework.stereotype.Service;
 
 import java.util.Deque;
 import java.util.NoSuchElementException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Function;
 
 @Service
 @Slf4j
 public class KitchenServiceImpl implements KitchenService {
     private final AtomicLong cookingOrderId;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
-    private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque;
+    private final AtomicReference<Deque<OutputEvent>> pubDeque;
     private final LongAdder mealsUnderPreparation;
     private final ScheduledExecutorService cookExecutor;
     private final PriorityBlockingQueue<Chef> mealDeque;
@@ -30,29 +31,31 @@ public class KitchenServiceImpl implements KitchenService {
         PriorityBlockingQueue<Chef> deque = new PriorityBlockingQueue<>();
         this.cookingOrderId = new AtomicLong();
         this.internalIdToOrder = new ConcurrentHashMap<>();
-        this.publicNotificationDeque = new AtomicReference<>();
+        this.pubDeque = new AtomicReference<>();
         this.mealsUnderPreparation = new LongAdder();
         this.mealDeque = deque;
-        this.cookExecutor = buildCookExecutor(deque, mealsUnderPreparation);
+        this.cookExecutor = buildCookExecutor(buildSafeTask(deque));
     }
 
-    private static ScheduledExecutorService buildCookExecutor(PriorityBlockingQueue<Chef> mealDeque,
-                                                              LongAdder completedCounter) {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(() -> {
-            long now = KitchenClock.now();
-            if (!mealDeque.isEmpty() && mealDeque.peek().isMealReady(now)) {
-                try {
-                    Chef chef = mealDeque.poll(0L, TimeUnit.MILLISECONDS);
+    private static SafeTask buildSafeTask(PriorityBlockingQueue<Chef> deque) {
+        return new SafeTask() {
+            @SneakyThrows
+            @Override
+            protected void doWork() {
+                long now = KitchenClock.now();
+                if (!deque.isEmpty() && deque.peek().isMealReady(now)) {
+                    Chef chef = deque.poll(0L, TimeUnit.MILLISECONDS);
                     if(chef != null) {
-                        chef.publishEvent(now);
-                        completedCounter.decrement();
+                        chef.reportMealReady(now);
                     }
-                } catch (InterruptedException e) {
-                    log.error("element in queue is null");
                 }
             }
-        }, 1000L, 900, TimeUnit.MILLISECONDS);
+        };
+    }
+
+    private static ScheduledExecutorService buildCookExecutor(SafeTask safeTask) {
+        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+        executorService.scheduleAtFixedRate(safeTask, 1000L, 900, TimeUnit.MILLISECONDS);
         return executorService;
     }
 
@@ -62,12 +65,18 @@ public class KitchenServiceImpl implements KitchenService {
         if(order != null) {
             mealsUnderPreparation.increment();
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            Chef chef = Chef.of(mealOrderId, order.id, order.prepTime, this.publicNotificationDeque.get());
-            this.mealDeque.offer(chef);
-            return chef.mealFuture;
+            Chef prepare = Chef.prepare(mealOrderId, order, this::reportMealPrepared);
+            CompletableFuture<Boolean> notificationHandle = prepare.readyFuture;
+            this.mealDeque.offer(prepare);
+            return notificationHandle;
         }
         String template = "Unable to find the given cookReservationId id[%d]";
         return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, mealOrderId)));
+    }
+
+    private boolean reportMealPrepared(OutputEvent outputEvent) {
+        mealsUnderPreparation.decrement();
+        return publish(outputEvent);
     }
 
     @Override
@@ -85,7 +94,17 @@ public class KitchenServiceImpl implements KitchenService {
 
     @Override
     public void registerNotificationDeque(Deque<OutputEvent> deque) {
-        this.publicNotificationDeque.set(deque);
+        this.pubDeque.set(deque);
+    }
+
+    @Override
+    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
+        return this.pubDeque;
+    }
+
+    @Override
+    public Logger log() {
+        return log;
     }
 
     @Override
@@ -105,39 +124,27 @@ public class KitchenServiceImpl implements KitchenService {
         private final long mealOrderId;
         private final String id;
         private final long readyAt;
-        private final Deque<OutputEvent> notificationQueue;
-        private final CompletableFuture<Boolean> mealFuture;
+        public final CompletableFuture<Boolean> readyFuture = new CompletableFuture<>();
+        private final Function<OutputEvent, Boolean> report;
 
-        private Chef(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
+        private Chef(long mealOrderId, String id, long prepTimeMillis, Function<OutputEvent, Boolean> report) {
             this.mealOrderId = mealOrderId;
             this.id = id;
-            this.readyAt = prepTime + KitchenClock.now();
-            this.notificationQueue = deque;
-            this.mealFuture = new CompletableFuture<>();
+            this.readyAt = prepTimeMillis + KitchenClock.now();
+            this.report = report;
         }
 
-        public static Chef of(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
-            return new Chef(mealOrderId, id, prepTime, deque);
+        public static Chef prepare(long mealOrderId, DeliveryOrder order, Function<OutputEvent, Boolean> report) {
+            return new Chef(mealOrderId, order.id, order.prepTime, report);
         }
 
         public boolean isMealReady(long now) {
             return now >= this.readyAt;
         }
 
-        public void publishEvent(Long now) {
-            try {
-                if(null != this.notificationQueue) {
-                    this.notificationQueue.offer(OrderPreparedEvent.of(this.mealOrderId, this.id, now));
-                    this.mealFuture.complete(true);
-                } else {
-                    log.error("error to publish meal prepared event no queue available");
-                    this.mealFuture.complete(false);
-                }
-            } catch (Exception e) {
-                String message = "Unable to notify food ready for pickup: " + e.getMessage();
-                log.error(message, e);
-                this.mealFuture.completeExceptionally(new Exception(message, e));
-            }
+        public void reportMealReady(Long now) {
+            OrderPreparedEvent event = OrderPreparedEvent.of(this.mealOrderId, this.id, now);
+            this.readyFuture.complete(this.report.apply(event));
         }
 
         @Override

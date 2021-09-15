@@ -27,10 +27,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M3</version>
+                <version>${maven.surefire.plugin.version}</version>
                 <configuration>
                     <skipTests>${skip.unit.tests}</skipTests>
-                    <argLine>${maven.surefire.plugin.args}</argLine>
+                    <argLine>@{argLine}</argLine>
                     <excludes>
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
@@ -39,7 +39,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.0.0-M5</version>
+                <version>${maven.failsafe.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>integration-tests</id>
@@ -71,46 +71,17 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <id>default-prepare-agent</id>
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
                     </execution>
+                    <!-- attached to Maven test phase -->
                     <execution>
-                        <id>default-report</id>
+                        <id>report</id>
+                        <phase>test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>default-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <rule>
-                                    <element>CLASS</element>
-                                    <excludes>
-                                        <exclude>*Test</exclude>
-                                        <exclude>*IntegrationTest</exclude>
-                                        <exclude>TestUtils</exclude>
-                                    </excludes>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>70%</minimum>
-                                        </limit>
-                                        <limit>
-                                            <counter>CLASS</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>70%</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -173,5 +144,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

@@ -44,8 +44,7 @@ class OrderControllerTest {
     public void mustRejectInvalidRequestsDTO() {
         //given
         List<DeliveryOrderRequestDTO> invalidDTOS = List.of(new DeliveryOrderRequestDTO("", "", -12),
-                new DeliveryOrderRequestDTO("312", "", 1), new DeliveryOrderRequestDTO("", "321", 1),
-                new DeliveryOrderRequestDTO("dsad", null, 1), new DeliveryOrderRequestDTO(null, "321", 1));
+                new DeliveryOrderRequestDTO("312", "", 1), new DeliveryOrderRequestDTO("", "321", 1));
 
         //when
         List<ResponseEntity<String>> collect = invalidDTOS.stream()
