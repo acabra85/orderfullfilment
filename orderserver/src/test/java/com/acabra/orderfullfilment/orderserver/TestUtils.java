@@ -2,6 +2,7 @@ package com.acabra.orderfullfilment.orderserver;
 
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
 import com.acabra.orderfullfilment.orderserver.model.Dishes;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,12 +40,13 @@ public class TestUtils {
                 LocalDateTime.now().format(FORMATTER)));
         logger.info("File result: {}", file.getAbsolutePath());
 
+        ObjectMapper objectMapper = new ObjectMapper();
         try(final BufferedWriter bw = new BufferedWriter(
                 new FileWriter(file))) {
             bw.write('[');
             orderStreamBuilder.build().forEach(order -> {
-                String orderStr = order.toString();
                 try {
+                    String orderStr = objectMapper.writeValueAsString(order);
                     bw.write(orderStr);
                     if(orderProcessedCount.getAndIncrement() < TOTAL_ORDERS - 1) {
                         bw.write(',');
@@ -56,8 +58,6 @@ public class TestUtils {
             });
             bw.write(']');
 
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }

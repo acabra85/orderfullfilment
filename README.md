@@ -25,9 +25,9 @@ The system has two components a server and an order generator:
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
-    ```java -jar orderserver/target/orderserver-1.3.jar```
+    ```java -jar orderserver/target/orderserver-1.4.jar```
     or choose the strategy matched
-    ```java -jar orderserver/target/orderserver-1.3.jar --orderserver.strategy=matched```
+    ```java -jar orderserver/target/orderserver-1.4.jar --orderserver.strategy=matched```
 
 3. Start the order generator system (see the args table)
     ```java -jar ordergenerator/target/ordergenerator-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
@@ -124,4 +124,4 @@ For a detail of the configuration of the server system take a look at [applicati
 
 It is possible to run the server with a different configuration by launching the application with the parameter **--spring.config.location**
 e.g.
-```java -jar orderserver/target/orderserver-1.3.jar --spring.config.location=/fullpath/to/file/application.properties```
+```java -jar orderserver/target/orderserver-1.4.jar --spring.config.location=/fullpath/to/file/application.properties```

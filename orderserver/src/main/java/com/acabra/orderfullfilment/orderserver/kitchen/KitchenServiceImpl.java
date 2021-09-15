@@ -24,10 +24,10 @@ public class KitchenServiceImpl implements KitchenService {
     private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque;
     private final LongAdder mealsUnderPreparation;
     private final ScheduledExecutorService cookExecutor;
-    private final PriorityBlockingQueue<MealSupplier> mealDeque;
+    private final PriorityBlockingQueue<Chef> mealDeque;
 
     public KitchenServiceImpl() {
-        PriorityBlockingQueue<MealSupplier> deque = new PriorityBlockingQueue<>();
+        PriorityBlockingQueue<Chef> deque = new PriorityBlockingQueue<>();
         this.cookingOrderId = new AtomicLong();
         this.internalIdToOrder = new ConcurrentHashMap<>();
         this.publicNotificationDeque = new AtomicReference<>();
@@ -36,16 +36,16 @@ public class KitchenServiceImpl implements KitchenService {
         this.cookExecutor = buildCookExecutor(deque, mealsUnderPreparation);
     }
 
-    private static ScheduledExecutorService buildCookExecutor(PriorityBlockingQueue<MealSupplier> mealDeque,
+    private static ScheduledExecutorService buildCookExecutor(PriorityBlockingQueue<Chef> mealDeque,
                                                               LongAdder completedCounter) {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(() -> {
             long now = KitchenClock.now();
             if (!mealDeque.isEmpty() && mealDeque.peek().isMealReady(now)) {
                 try {
-                    MealSupplier poll = mealDeque.poll(0L, TimeUnit.MILLISECONDS);
-                    if(poll != null) {
-                        poll.apply(now);
+                    Chef chef = mealDeque.poll(0L, TimeUnit.MILLISECONDS);
+                    if(chef != null) {
+                        chef.publishEvent(now);
                         completedCounter.decrement();
                     }
                 } catch (InterruptedException e) {
@@ -62,15 +62,12 @@ public class KitchenServiceImpl implements KitchenService {
         if(order != null) {
             mealsUnderPreparation.increment();
             log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            Chef chef = Chef.of(mealOrderId, order, this.mealDeque);
-            return schedule(chef);
+            Chef chef = Chef.of(mealOrderId, order.id, order.prepTime, this.publicNotificationDeque.get());
+            this.mealDeque.offer(chef);
+            return chef.mealFuture;
         }
         String template = "Unable to find the given cookReservationId id[%d]";
         return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, mealOrderId)));
-    }
-
-    private CompletableFuture<Boolean> schedule(Chef chef) {
-        return chef.prepareMeal(this.publicNotificationDeque.get());
     }
 
     @Override
@@ -102,73 +99,49 @@ public class KitchenServiceImpl implements KitchenService {
         log.info("Kitchen shutdown");
     }
 
-    private static class Chef {
-        private final long mealOrderId;
-        private final DeliveryOrder order;
-        private final PriorityBlockingQueue<MealSupplier> mealQueue;
 
-        private Chef(long mealReservationId, DeliveryOrder order, PriorityBlockingQueue<MealSupplier> mealQueue) {
-            this.mealOrderId = mealReservationId;
-            this.order = order;
-            this.mealQueue = mealQueue;
-        }
-
-        private static Chef of(long mealOrderId, DeliveryOrder order, PriorityBlockingQueue<MealSupplier> mealQueue) {
-            return new Chef(mealOrderId, order, mealQueue);
-        }
-
-        private CompletableFuture<Boolean> prepareMeal(Deque<OutputEvent> deque) {
-            MealSupplier mealSupplier = MealSupplier.of(this.mealOrderId, this.order.id, order.prepTime, deque);
-            this.mealQueue.offer(mealSupplier);
-            return mealSupplier.notifiedFuture;
-        }
-    }
-
-    private static class MealSupplier implements Function<Long, Void>, Comparable<MealSupplier> {
+    private static class Chef implements Comparable<Chef> {
 
         private final long mealOrderId;
         private final String id;
         private final long readyAt;
         private final Deque<OutputEvent> notificationQueue;
-        private final CompletableFuture<Boolean> notifiedFuture;
+        private final CompletableFuture<Boolean> mealFuture;
 
-        private MealSupplier(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
+        private Chef(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
             this.mealOrderId = mealOrderId;
             this.id = id;
             this.readyAt = prepTime + KitchenClock.now();
             this.notificationQueue = deque;
-            notifiedFuture = new CompletableFuture<>();
+            this.mealFuture = new CompletableFuture<>();
         }
 
-        public static MealSupplier of(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
-            return new MealSupplier(mealOrderId, id, prepTime, deque);
+        public static Chef of(long mealOrderId, String id, long prepTime, Deque<OutputEvent> deque) {
+            return new Chef(mealOrderId, id, prepTime, deque);
         }
 
         public boolean isMealReady(long now) {
             return now >= this.readyAt;
         }
 
-        @Override
-        public Void apply(Long now) {
+        public void publishEvent(Long now) {
             try {
                 if(null != this.notificationQueue) {
                     this.notificationQueue.offer(OrderPreparedEvent.of(this.mealOrderId, this.id, now));
-                    this.notifiedFuture.complete(true);
-                    return null;
+                    this.mealFuture.complete(true);
                 } else {
                     log.error("error to publish meal prepared event no queue available");
-                    this.notifiedFuture.complete(false);
+                    this.mealFuture.complete(false);
                 }
             } catch (Exception e) {
                 String message = "Unable to notify food ready for pickup: " + e.getMessage();
                 log.error(message, e);
-                this.notifiedFuture.completeExceptionally(new Exception(message, e));
+                this.mealFuture.completeExceptionally(new Exception(message, e));
             }
-            return null;
         }
 
         @Override
-        public int compareTo(MealSupplier o) {
+        public int compareTo(Chef o) {
             return Long.compare(this.readyAt, o.readyAt);
         }
     }

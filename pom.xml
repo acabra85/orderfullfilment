@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.acabra</groupId>
     <artifactId>orderfullfilment</artifactId>
-    <version>1.3</version>
+    <version>1.4</version>
     <name>orderfullfilment</name>
     <packaging>pom</packaging>
     <properties>
@@ -20,6 +20,7 @@
         <jacoco.version>0.8.7</jacoco.version>
         <skip.unit.tests>false</skip.unit.tests>
         <skip.integration.tests>true</skip.integration.tests>
+        <maven.surefire.plugin.args>-Xmx1024m -XX:MaxPermSize=768m</maven.surefire.plugin.args>
     </properties>
     <profiles>
         <profile>
