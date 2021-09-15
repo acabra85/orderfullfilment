@@ -1,5 +1,5 @@
 # Food Delivery Backend
-This is a real time simulator of a food delivery order systems.
+This is a real time simulator of an online food delivery order system.
 
 # Run
  

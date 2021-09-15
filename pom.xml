@@ -20,7 +20,9 @@
         <jacoco.version>0.8.7</jacoco.version>
         <skip.unit.tests>false</skip.unit.tests>
         <skip.integration.tests>true</skip.integration.tests>
-        <maven.surefire.plugin.args>-Xmx1024m -XX:MaxPermSize=768m</maven.surefire.plugin.args>
+        <argLine>-Xmx1024m</argLine>
+        <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
+        <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
     </properties>
     <profiles>
         <profile>
@@ -52,6 +54,7 @@
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
             <version>${jacoco.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <modules>

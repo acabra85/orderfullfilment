@@ -3,6 +3,7 @@ package com.acabra.orderfullfilment.orderserver.courier.matcher;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @ConditionalOnProperty(prefix = "orderserver", name = "strategy", havingValue = "matched")
 public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
 
-    private final AtomicReference<Deque<OutputEvent>> publicNotificationDeque = new AtomicReference<>();
+    private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
     private final Map<Long, OrderPreparedEvent> ordersPrepared = new ConcurrentHashMap<>();
     private final Map<Integer, CourierArrivedEvent> couriersArrived = new ConcurrentHashMap<>();
     private final Map<Integer, Long> couriersToOrderMap = new ConcurrentHashMap<>();
@@ -47,10 +48,10 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
         return false;
     }
 
-    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderPreparedEvent, CourierArrivedEvent courierArrivedEvent) {
-        ordersToCourierMap.remove(orderPreparedEvent.mealOrderId);
-        couriersToOrderMap.remove(courierArrivedEvent.courierId);
-        publishedOrderPickedUpEvent(courierArrivedEvent, orderPreparedEvent);
+    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt) {
+        ordersToCourierMap.remove(orderEvt.mealOrderId);
+        couriersToOrderMap.remove(courierEvt.courierId);
+        publish(OrderPickedUpEvent.of(KitchenClock.now(), courierEvt,orderEvt.createdAt, orderEvt.mealOrderId));
     }
 
     @Override
@@ -75,19 +76,17 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
 
     @Override
     public void registerNotificationDeque(Deque<OutputEvent> deque) {
-        this.publicNotificationDeque.set(deque);
+        this.pubDeque.set(deque);
     }
 
-    private void publishedOrderPickedUpEvent(CourierArrivedEvent courierArrivedEvent,
-                                             OrderPreparedEvent orderPreparedEvent) {
-        try {
-            this.publicNotificationDeque.get()
-                    .offer(OrderPickedUpEvent
-                            .of(KitchenClock.now(), courierArrivedEvent,orderPreparedEvent.createdAt,
-                                    orderPreparedEvent.mealOrderId));
-        } catch (Exception e) {
-            log.error("Unable to publish result to notification queue {}", e.getMessage(), e);
-        }
+    @Override
+    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
+        return this.pubDeque;
+    }
+
+    @Override
+    public Logger log() {
+        return log;
     }
 
     @Override

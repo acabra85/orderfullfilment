@@ -6,12 +6,12 @@ import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Deque;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component
@@ -19,13 +19,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CourierServiceImpl implements CourierDispatchService {
 
     private final CourierFleet courierFleet;
-    private final AtomicReference<Deque<OutputEvent>> publicNotificationQueue;
+    private final AtomicReference<Deque<OutputEvent>> pubDeque;
     private final OrderCourierMatcher orderCourierMatcher;
 
     @Autowired
     public CourierServiceImpl(CourierFleet courierFleet, OrderCourierMatcher orderCourierMatcher) {
         this.courierFleet = courierFleet;
-        this.publicNotificationQueue = new AtomicReference<>();
+        this.pubDeque = new AtomicReference<>();
         this.orderCourierMatcher = orderCourierMatcher;
     }
 
@@ -34,23 +34,12 @@ public class CourierServiceImpl implements CourierDispatchService {
         DispatchResult dispatchResult = this.courierFleet.dispatch(order);
         Integer courierId = dispatchResult.courierId;
         if(null != courierId) {
-            publishCourierDispatchedNotification(order, courierId, dispatchResult.estimatedTravelTime, kitchenReservationId);
+            OutputEvent event = CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, kitchenReservationId,
+                    dispatchResult.estimatedTravelTime);
+            publish(event);
             return Optional.of(courierId);
         }
         return Optional.empty();
-    }
-
-    private void publishCourierDispatchedNotification(DeliveryOrder order, Integer courierId, int estimatedTravelTime,
-                                                      long kitchenReservationId) {
-        Deque<OutputEvent> deque = this.publicNotificationQueue.get();
-        if(null != deque) {
-            try {
-                 deque.offer(CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, kitchenReservationId,
-                         estimatedTravelTime));
-            } catch (Exception e) {
-                log.error("Unable to publish courier dispatched event: {}", e.getMessage(), e);
-            }
-        }
     }
 
     @Override
@@ -70,9 +59,19 @@ public class CourierServiceImpl implements CourierDispatchService {
 
     @Override
     public void registerNotificationDeque(Deque<OutputEvent> deque) {
-        this.publicNotificationQueue.set(deque);
+        this.pubDeque.set(deque);
         this.orderCourierMatcher.registerNotificationDeque(deque);
         this.courierFleet.registerNotificationDeque(deque);
+    }
+
+    @Override
+    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
+        return pubDeque;
+    }
+
+    @Override
+    public Logger log() {
+        return log;
     }
 
     @Override

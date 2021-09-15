@@ -82,8 +82,6 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
-        Thread.sleep(1000L);
-        underTest.close();
         underTest.getCompletedHandle().join();
 
         //then
@@ -129,9 +127,14 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderReceivedEvent);
-        Thread.sleep(1000L);
+        /*We must stop this call as the natural termination depends on orders being delivered
+        * since this unit test only wants to test the event orderReceivedEvent it is reasonable
+        * to stop it.
+        * */
+        Thread.sleep(2000L);
         underTest.close();
         underTest.getCompletedHandle().join();
+
 
         //then
         Assertions.assertThat(underTest.getMetricsSnapshot().totalOrdersReceived).isEqualTo(1);
@@ -216,8 +219,6 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPickedUpEventStub);
-        Thread.sleep(2000L);
-        underTest.close();
         underTest.getCompletedHandle().join();
         //then
 

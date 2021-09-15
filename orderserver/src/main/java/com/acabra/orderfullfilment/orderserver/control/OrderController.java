@@ -38,7 +38,7 @@ public class OrderController {
 
     private boolean valid(DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
         return deliveryOrderRequestDTO.prepTime >= 0
-                && null != deliveryOrderRequestDTO.id && !deliveryOrderRequestDTO.id.isBlank()
-                && null != deliveryOrderRequestDTO.name && !deliveryOrderRequestDTO.name.isBlank();
+                && !deliveryOrderRequestDTO.id.isBlank()
+                && !deliveryOrderRequestDTO.name.isBlank();
     }
 }
