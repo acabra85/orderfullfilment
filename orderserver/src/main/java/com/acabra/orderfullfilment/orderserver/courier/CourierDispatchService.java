@@ -27,8 +27,6 @@ public interface CourierDispatchService extends OutputEventPublisher {
     /**
      * Dispatch service releases the assignment from the courier
      * @param orderDeliveredEvent event
-     * @return a handle to allow callers to take action upon completion, the handle can complete with exceptions if the
-     *         courierId is not valid
      */
      void processOrderDelivered(OrderDeliveredEvent orderDeliveredEvent);
 
@@ -43,7 +41,7 @@ public interface CourierDispatchService extends OutputEventPublisher {
 
     /**
      * Notifies the courier service of the courierDispatched event, this allows
-     * @param courierDispatchedEvent
+     * @param courierDispatchedEvent event indicating a courier was dispatched
      */
     void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent);
 

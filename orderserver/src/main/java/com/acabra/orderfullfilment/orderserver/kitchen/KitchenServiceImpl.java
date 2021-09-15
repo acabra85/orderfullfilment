@@ -4,7 +4,6 @@ import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-import com.google.inject.internal.util.Function;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -16,6 +15,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 
 @Service
 @Slf4j
@@ -118,9 +118,7 @@ public class KitchenServiceImpl implements KitchenService {
         log.info("Kitchen shutdown");
     }
 
-
     private static class Chef implements Comparable<Chef> {
-
         private final long mealOrderId;
         private final String id;
         private final long readyAt;

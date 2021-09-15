@@ -8,4 +8,8 @@ public abstract class OutputEvent {
         this.type = type;
         this.createdAt = createdAt;
     }
+
+    public EventType getType() {
+        return type;
+    }
 }

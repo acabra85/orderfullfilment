@@ -87,7 +87,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     }
 
     private void dispatchOutputEvent(final OutputEvent outputEvent) {
-        switch (outputEvent.type) {
+        switch (outputEvent.getType()) {
             case ORDER_RECEIVED:
                 this.metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
