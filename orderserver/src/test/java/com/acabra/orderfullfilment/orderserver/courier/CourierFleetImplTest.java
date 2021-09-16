@@ -168,7 +168,7 @@ class CourierFleetImplTest {
     }
 
     @Test
-    public void mustFailCourierNotification_exceptionThrownWhileReporting() throws InterruptedException {
+    public void mustFailCourierNotification_exceptionThrownWhileReporting() {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
@@ -181,20 +181,19 @@ class CourierFleetImplTest {
 
         //when
         DispatchResult actualDispatchResult = underTest.dispatch(validOrder);
+        Boolean isNotificationSent = actualDispatchResult.notificationFuture.join();
 
         //then
         Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
         Assertions.assertThat(actualDispatchResult.courierId).isEqualTo(expectedCourierId);
-        Assertions.assertThatThrownBy(actualDispatchResult.notificationFuture::get)
-                .hasRootCauseInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Failed to publish the notification");
+        Assertions.assertThat(isNotificationSent).isFalse();
         Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
     }
 
     @Test
-    public void mustCompleteNotificationAsFalse_interruptedExceptionThrown() throws InterruptedException, ExecutionException {
+    public void mustCompleteNotificationAsFalse_interruptedExceptionThrown() {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
@@ -207,14 +206,12 @@ class CourierFleetImplTest {
 
         //when
         DispatchResult actualDispatchResult = underTest.dispatch(validOrder);
-        ThrowableAssert.ThrowingCallable throwingCallable = actualDispatchResult.notificationFuture::get;
+        Boolean isNotificationSent = actualDispatchResult.notificationFuture.join();
 
         //then
         Assertions.assertThat(list.stream().noneMatch(Courier::isAvailable)).isTrue();
         Assertions.assertThat(actualDispatchResult.courierId).isEqualTo(expectedCourierId);
-        Assertions.assertThatThrownBy(throwingCallable)
-                .hasRootCauseInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Failed to publish the notification");
+        Assertions.assertThat(isNotificationSent).isFalse();
         Mockito.verify(etaEstimatorMock, Mockito.times(1)).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
         Mockito.verify(dequeMock, Mockito.times(1)).offer(Mockito.any(CourierArrivedEvent.class));
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);

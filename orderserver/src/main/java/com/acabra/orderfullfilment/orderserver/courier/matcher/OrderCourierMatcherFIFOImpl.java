@@ -76,7 +76,7 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
                                              OrderPreparedEvent orderEvt) {
         long now = KitchenClock.now();
         OrderPickedUpEvent orderPickedUpEvent = OrderPickedUpEvent.of(now, courierEvt,
-                orderEvt.createdAt, orderEvt.mealOrderId);
+                orderEvt.createdAt, orderEvt.kitchenReservationId);
         publish(orderPickedUpEvent);
     }
 

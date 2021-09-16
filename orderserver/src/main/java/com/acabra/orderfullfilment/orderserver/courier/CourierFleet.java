@@ -2,12 +2,13 @@ package com.acabra.orderfullfilment.orderserver.courier;
 
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.NoSuchElementException;
 import java.util.Deque;
 
-public interface CourierFleet {
+public interface CourierFleet extends OutputEventPublisher {
 
     /**
      *

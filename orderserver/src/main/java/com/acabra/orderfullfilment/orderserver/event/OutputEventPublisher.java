@@ -30,7 +30,7 @@ public interface OutputEventPublisher {
             try {
                 getPubDeque().get().offer(event);
                 return true;
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log().error("Unable to publish event: {}", e.getMessage(), e);
             }
         }

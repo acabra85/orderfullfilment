@@ -69,14 +69,11 @@ class OrderCourierMatcherFIFOImplTest {
     public void mustReturnNull_publicNotificationQueueNotRegistered() {
         //given
         Deque<OutputEvent> queue = new ConcurrentLinkedDeque<>();
-        CompletableFuture<OutputEvent> completionFuture = CompletableFuture.supplyAsync(() -> {
-            while (queue.peek() == null) {
-            }
-            return queue.poll();
-        }, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
+        CompletableFuture<OutputEvent> completionFuture = CompletableFuture
+                .supplyAsync(queue::poll, CompletableFuture.delayedExecutor(500, TimeUnit.MILLISECONDS));
         CompletableFuture.runAsync(() ->
                         underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101)),
-                CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
+                CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS));
 
         //when
         underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
@@ -93,7 +90,7 @@ class OrderCourierMatcherFIFOImplTest {
         Mockito.doThrow(RuntimeException.class).when(queueMock).offer(Mockito.any(OutputEvent.class));
         underTest.registerNotificationDeque(queueMock);
         CompletableFuture<OutputEvent> completionFuture = CompletableFuture
-                .supplyAsync(() -> queueMock.poll(), CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
+                .supplyAsync(queueMock::poll, CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS));
         CompletableFuture.runAsync(() ->
                 underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101)),
             CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));

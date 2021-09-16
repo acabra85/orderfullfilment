@@ -104,7 +104,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                 break;
             case ORDER_PREPARED:
                 OrderPreparedEvent orderPreparedEvent = (OrderPreparedEvent) outputEvent;
-                log.info("[EVENT] order prepared: mealId[{}], orderId[{}] at {}", orderPreparedEvent.mealOrderId,
+                log.info("[EVENT] order prepared: mealId[{}], orderId[{}] at {}", orderPreparedEvent.kitchenReservationId,
                     orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
                 courierService.processOrderPrepared(orderPreparedEvent);
                 break;

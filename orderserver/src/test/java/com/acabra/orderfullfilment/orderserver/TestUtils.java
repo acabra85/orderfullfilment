@@ -1,6 +1,7 @@
 package com.acabra.orderfullfilment.orderserver;
 
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
+import com.acabra.orderfullfilment.orderserver.event.CourierDispatchedEvent;
 import com.acabra.orderfullfilment.orderserver.model.Dishes;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -68,5 +69,55 @@ public class TestUtils {
     private DeliveryOrderRequestDTO buildDish() {
         Dishes dish = Dishes.getRandomDish();
         return new DeliveryOrderRequestDTO(UUID.randomUUID().toString(), dish.description, dish.prepTime);
+    }
+
+    public static class DispatchMatch {
+
+        private Integer courierId = null;
+        private Long kitchenReservationId = null;
+
+        private DispatchMatch() {}
+        
+        private void setKitchenReservationId(long kitchenReservationId) {
+            this.kitchenReservationId = kitchenReservationId;
+        }
+
+        private void setCourierId(int courierId) {
+            this.courierId = courierId;
+        }
+        
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static class Builder {
+
+            private DispatchMatch dispatchMatch;
+
+            private Builder() {
+                this.dispatchMatch = new DispatchMatch();
+            }
+            
+            public Builder withCourier(int courierId) {
+                dispatchMatch.setCourierId(courierId);
+                return this;
+            }
+
+            public Builder withOrder(long orderId) {
+                dispatchMatch.setKitchenReservationId(orderId);
+                return this;
+            }
+            
+            public DispatchMatch build() {
+                DispatchMatch dispatchMatch = this.dispatchMatch;
+                this.dispatchMatch = null;
+                return dispatchMatch;
+            }
+        }
+    }
+
+    public static CourierDispatchedEvent buildDispatchEvent(DispatchMatch match) {
+
+        return CourierDispatchedEvent.of(1000, null, match.courierId, match.kitchenReservationId, 1000);
     }
 }

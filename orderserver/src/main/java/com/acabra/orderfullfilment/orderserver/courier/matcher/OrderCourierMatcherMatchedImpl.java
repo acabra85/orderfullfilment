@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Deque;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -21,25 +22,27 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
     private final Map<Long, OrderPreparedEvent> ordersPrepared = new ConcurrentHashMap<>();
     private final Map<Integer, CourierArrivedEvent> couriersArrived = new ConcurrentHashMap<>();
-    private final Map<Integer, Long> couriersToOrderMap = new ConcurrentHashMap<>();
-    private final Map<Long, Integer> ordersToCourierMap = new ConcurrentHashMap<>();
+    private final Map<Integer, Long> courierToReservationMap = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> reservationToCourierMap = new ConcurrentHashMap<>();
 
     public OrderCourierMatcherMatchedImpl() {
         log.info("[SYSTEM] Initialized the server using the dispatch MATCHED strategy");
     }
 
     @Override
-    public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent) {
+    public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderEvt) {
         try {
-            couriersArrived.compute(ordersToCourierMap.get(orderPreparedEvent.mealOrderId),
-                    (courierId, courierArrivedEvent) -> {
-                        if (null != courierArrivedEvent) {
-                            completeMatchingAndPublish(orderPreparedEvent, courierArrivedEvent);
-                        } else {
-                            ordersPrepared.put(orderPreparedEvent.mealOrderId, orderPreparedEvent);
-                        }
-                        return null;
+            couriersArrived.compute(
+                Objects.requireNonNull(reservationToCourierMap.get(orderEvt.kitchenReservationId),
+                        "Unrecognized Reservation Id: " + orderEvt.kitchenReservationId),
+                (courierId, courierArrivedEvent) -> {
+                    if (null != courierArrivedEvent) {
+                        completeMatchingAndPublish(orderEvt, courierArrivedEvent);
+                    } else {
+                        ordersPrepared.put(orderEvt.kitchenReservationId, orderEvt);
                     }
+                    return null;
+                }
             );
             return true;
         } catch (Exception e) {
@@ -49,23 +52,25 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     }
 
     synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt) {
-        ordersToCourierMap.remove(orderEvt.mealOrderId);
-        couriersToOrderMap.remove(courierEvt.courierId);
-        publish(OrderPickedUpEvent.of(KitchenClock.now(), courierEvt,orderEvt.createdAt, orderEvt.mealOrderId));
+        reservationToCourierMap.remove(orderEvt.kitchenReservationId);
+        courierToReservationMap.remove(courierEvt.courierId);
+        publish(OrderPickedUpEvent.of(KitchenClock.now(), courierEvt,orderEvt.createdAt, orderEvt.kitchenReservationId));
     }
 
     @Override
-    public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierArrivedEvent) {
+    public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierEvt) {
         try {
-            ordersPrepared.compute(couriersToOrderMap.get(courierArrivedEvent.courierId),
-                    (orderId, orderPreparedEvent) -> {
-                        if(null != orderPreparedEvent) {
-                            completeMatchingAndPublish(orderPreparedEvent, courierArrivedEvent);
-                        } else {
-                            couriersArrived.put(courierArrivedEvent.courierId, courierArrivedEvent);
-                        }
-                        return null;
+            ordersPrepared.compute(
+                Objects.requireNonNull(courierToReservationMap.get(courierEvt.courierId),
+                        "Unrecognized Courier Id: " + courierEvt.courierId),
+                (orderId, orderPreparedEvent) -> {
+                    if(null != orderPreparedEvent) {
+                        completeMatchingAndPublish(orderPreparedEvent, courierEvt);
+                    } else {
+                        couriersArrived.put(courierEvt.courierId, courierEvt);
                     }
+                    return null;
+                }
             );
             return true;
         } catch (Exception e) {
@@ -90,8 +95,8 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     }
 
     @Override
-    synchronized public void processCourierDispatchedEvent(CourierDispatchedEvent courierDispatchedEvent) {
-        couriersToOrderMap.put(courierDispatchedEvent.courierId, courierDispatchedEvent.kitchenReservationId);
-        ordersToCourierMap.put(courierDispatchedEvent.kitchenReservationId, courierDispatchedEvent.courierId);
+    synchronized public void processCourierDispatchedEvent(CourierDispatchedEvent courierEvt) {
+        courierToReservationMap.put(courierEvt.courierId, courierEvt.kitchenReservationId);
+        reservationToCourierMap.put(courierEvt.kitchenReservationId, courierEvt.courierId);
     }
 }

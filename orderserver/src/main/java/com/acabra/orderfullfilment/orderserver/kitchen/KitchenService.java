@@ -17,17 +17,17 @@ public interface KitchenService extends OutputEventPublisher {
 
     /**
      * Cancels the reservation order to cook a meal
-     * @param mealReservationId id of the reservation
+     * @param kitchenReservationId id of the reservation
      * @return true if reservation existed or false otherwise
      */
-    boolean cancelCookReservation(long mealReservationId);
+    boolean cancelCookReservation(long kitchenReservationId);
 
     /**
      * Instructs the kitchen to start meal preparation as a courier has been reserved to handle the order
-     * @param cookReservationId the reservation id provided by calling @orderCookReservationId
+     * @param kitchenReservationId the reservation id provided by calling @orderCookReservationId
      * @return a future handle to determine if the notification meal ready was published successfully.
      */
-    CompletableFuture<Boolean> prepareMeal(long cookReservationId);
+    CompletableFuture<Boolean> prepareMeal(long kitchenReservationId);
 
     /**
      * Reports whether the kitchen is preparing meals or not

@@ -12,6 +12,8 @@ public interface OrderCourierMatcher extends OutputEventPublisher {
      * strategy
      * @param orderPreparedEvent the event indicating a meal was prepared and ready for pickup
      * @return false if the event was not accepted or true otherwise
+     * @throws NullPointerException if the orderId is not recognized as it is expected the
+     *         processCourierDispatchedEvent was previously registered it
      */
     boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent);
 
@@ -20,6 +22,8 @@ public interface OrderCourierMatcher extends OutputEventPublisher {
      * strategy
      * @param courierArrivedEvent event indicating a courier arrived to the kitchen to pickup orders
      * @return false if the event was not accepted or true otherwise
+     * @throws NullPointerException if the courier is not recognized, as it is expected the
+     *         processCourierDispatchedEvent was previously registered it
      */
     boolean acceptCourierArrivedEvent(CourierArrivedEvent courierArrivedEvent);
 
