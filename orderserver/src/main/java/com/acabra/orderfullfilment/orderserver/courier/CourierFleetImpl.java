@@ -137,7 +137,7 @@ public class CourierFleetImpl implements CourierFleet {
         this.dispatchExecutor.shutdownNow();
     }
 
-    private CompletableTask buildCompletableTask(int courierId, long eta, Function<OutputEvent, Boolean> report){
+    private CompletableTask buildCompletableTask(int courierId, long eta, Function<OutputEvent, Boolean> report) {
         return new CompletableTask() {
             public final long arrivalAt = KitchenClock.now() + eta;
             public final CompletableFuture<Boolean> completedFuture = new CompletableFuture<>();

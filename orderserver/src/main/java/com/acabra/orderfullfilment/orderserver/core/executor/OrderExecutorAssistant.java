@@ -15,13 +15,9 @@ public class OrderExecutorAssistant {
     private final ExecutorService eventHandler;
     private final ExecutorService concurrentExecutor;
     private final ExecutorService noMoreOrdersMonitor;
-    private final SafeTask outputEvtTask;
-    private final SafeTask noMoreOrdersTask;
 
     public OrderExecutorAssistant(OrderServerConfig config, SafeTask outputEventTask, SafeTask noMoreOrdersTask) {
         ExecutorService concurrentExecutor = Executors.newFixedThreadPool(config.getThreadCount());
-        this.outputEvtTask = outputEventTask;
-        this.noMoreOrdersTask = noMoreOrdersTask;
         this.concurrentExecutor = concurrentExecutor;
         this.eventHandler = startOutputEventProcessors(concurrentExecutor, outputEventTask, config.getPollingTimeMillis());
         this.noMoreOrdersMonitor = startNoMoreOrdersMonitor(config.getPeriodShutDownMonitorSeconds(), noMoreOrdersTask);

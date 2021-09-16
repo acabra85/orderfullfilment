@@ -4,6 +4,7 @@ import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.core.executor.NoMoreOrdersMonitor;
 import com.acabra.orderfullfilment.orderserver.core.executor.OrderExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.core.executor.OutputEventHandler;
+import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
@@ -57,9 +58,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private OrderExecutorAssistant buildExecutorAssistant(OrderServerConfig config, Deque<OutputEvent> deque) {
         int maxRetries = config.getPollingMaxRetries();
         Consumer<OutputEvent> dispatchOutputEvent = this::dispatchOutputEvent;
-        OutputEventHandler outputEventTask = new OutputEventHandler(deque, dispatchOutputEvent);
         Supplier<Boolean> hasPendingDeliveryOrders = this::hasPendingDeliveryOrders;
-        NoMoreOrdersMonitor noMoreOrdersTask = new NoMoreOrdersMonitor(maxRetries, hasPendingDeliveryOrders, deque);
+        SafeTask outputEventTask = new OutputEventHandler(deque, dispatchOutputEvent);
+        SafeTask noMoreOrdersTask = new NoMoreOrdersMonitor(maxRetries, hasPendingDeliveryOrders, deque);
         return new OrderExecutorAssistant(config, outputEventTask, noMoreOrdersTask);
     }
 
