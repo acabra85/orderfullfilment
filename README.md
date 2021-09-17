@@ -1,3 +1,6 @@
+[![Build Status](https://app.travis-ci.com/acabra85/orderfullfilment.svg?branch=main)](https://app.travis-ci.com/acabra85/orderfullfilment)
+[![codecov](https://codecov.io/gh/acabra85/orderfullfilment/branch/main/graph/badge.svg)](https://codecov.io/gh/acabra85/orderfullfilment)
+
 # Food Delivery Backend
 This is a real time simulator of an online food delivery order system.
 

@@ -1,0 +1,12 @@
+language: java
+sudo: true
+jdk: openjdk11
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+before_install:
+  - chmod +x mvnw
+script: ./mvnw clean && mkdir target && ./mvnw install > target/build.orig && tail -12 target/build.orig
+# safelist
+branches:
+  only:
+    - main
