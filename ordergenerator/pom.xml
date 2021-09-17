@@ -36,8 +36,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.plugin.version}</version>
                 <configuration>
+                    <argLine>@{argLine} ${surefireArgLine}</argLine>
                     <skipTests>${skip.unit.tests}</skipTests>
-                    <argLine>@{argLine}</argLine>
                 </configuration>
             </plugin>
             <plugin>

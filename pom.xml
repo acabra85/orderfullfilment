@@ -20,7 +20,7 @@
         <jacoco.version>0.8.7</jacoco.version>
         <skip.unit.tests>false</skip.unit.tests>
         <skip.integration.tests>true</skip.integration.tests>
-        <argLine>-Xmx1024m</argLine>
+        <surefireArgLine>-Xms1024m -Xmx2048m</surefireArgLine>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
     </properties>

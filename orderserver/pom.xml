@@ -29,8 +29,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.plugin.version}</version>
                 <configuration>
+                    <argLine>@{argLine} ${surefireArgLine}</argLine>
                     <skipTests>${skip.unit.tests}</skipTests>
-                    <argLine>@{argLine}</argLine>
+                    <threadCount>6</threadCount>
+                    <forkCount>4</forkCount>
+                    <reuseForks>true</reuseForks>
                     <excludes>
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
