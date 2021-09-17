@@ -65,8 +65,8 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
-        return pubDeque;
+    public Deque<OutputEvent> getPubDeque() {
+        return pubDeque.get();
     }
 
     @Override

@@ -76,7 +76,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                 .supplyAsync(() -> courierService.dispatchRequest(order, reservationId));
         return courierDispatch.thenApply(courierId -> {
             if(courierId.isPresent()) {
-                this.metricsProcessor.acceptOrderPrepareRequest();
+                metricsProcessor.acceptOrderPrepareRequest();
                 kitchenService.prepareMeal(reservationId);
                 return true;
             } else {
@@ -90,7 +90,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private void dispatchOutputEvent(final OutputEvent outputEvent) {
         switch (outputEvent.getType()) {
             case ORDER_RECEIVED:
-                this.metricsProcessor.acceptOrderReceived();
+                metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
                 log.info("[EVENT] order received : {} prepTime:{} name:{} at: {}" , orderReceivedEvent.order.id,
                         orderReceivedEvent.order.prepTime, orderReceivedEvent.order.name,

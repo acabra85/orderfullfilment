@@ -2,9 +2,9 @@ package com.acabra.orderfullfilment.orderserver.courier;
 
 import com.acabra.orderfullfilment.orderserver.core.CompletableTask;
 import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
-import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
+import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
@@ -123,8 +123,8 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
-        return this.pubDeque;
+    public Deque<OutputEvent> getPubDeque() {
+        return this.pubDeque.get();
     }
 
     @Override

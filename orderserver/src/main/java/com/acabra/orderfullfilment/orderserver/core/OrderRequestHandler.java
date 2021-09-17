@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 
 import java.util.Deque;
-import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -38,8 +37,8 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
     }
 
     @Override
-    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
-        return pubDeque;
+    public Deque<OutputEvent> getPubDeque() {
+        return pubDeque.get();
     }
 
     @Override

@@ -86,8 +86,8 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public AtomicReference<Deque<OutputEvent>> getPubDeque() {
-        return this.pubDeque;
+    public Deque<OutputEvent> getPubDeque() {
+        return this.pubDeque.get();
     }
 
     @Override

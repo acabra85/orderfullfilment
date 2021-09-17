@@ -3,7 +3,6 @@ package com.acabra.orderfullfilment.orderserver.event;
 import org.slf4j.Logger;
 
 import java.util.Deque;
-import java.util.concurrent.atomic.AtomicReference;
 
 public interface OutputEventPublisher {
 
@@ -17,7 +16,7 @@ public interface OutputEventPublisher {
      * A reference to the pubDeque to allow publication of events
      * @return an atomic reference to the pudDeque
      */
-    AtomicReference<Deque<OutputEvent>> getPubDeque();
+    Deque<OutputEvent> getPubDeque();
 
     /**
      * Provides the logger for the implementation
@@ -26,9 +25,10 @@ public interface OutputEventPublisher {
     Logger log();
 
     default boolean publish(OutputEvent event) {
-        if(null != getPubDeque().get()) {
+        Deque<OutputEvent> pubDeque = getPubDeque();
+        if(null != pubDeque) {
             try {
-                getPubDeque().get().offer(event);
+                pubDeque.offer(event);
                 return true;
             } catch (Throwable e) {
                 log().error("Unable to publish event: {}", e.getMessage(), e);
