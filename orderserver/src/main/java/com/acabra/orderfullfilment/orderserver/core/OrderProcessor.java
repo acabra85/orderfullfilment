@@ -2,7 +2,7 @@ package com.acabra.orderfullfilment.orderserver.core;
 
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.core.executor.NoMoreOrdersMonitor;
-import com.acabra.orderfullfilment.orderserver.core.executor.OrderExecutorAssistant;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.core.executor.OutputEventHandler;
 import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
@@ -32,11 +32,12 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
      * This is the main application service, it handles processing of orders
      * provides a public method close to finish threads consuming order events.
      */
+    public static final long MONITOR_START_DELAY_MILLIS = 5000L;
 
     private final CourierDispatchService courierService;
     private final KitchenService kitchenService;
     private final MetricsProcessor metricsProcessor;
-    private final OrderExecutorAssistant executorAssistant;
+    private final SchedulerExecutorAssistant schedulerAssistant;
     private ApplicationContext context;
     private final CompletableFuture<Void> completedHandle = new CompletableFuture<>();
 
@@ -44,24 +45,32 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                           CourierDispatchService courierService,
                           KitchenService kitchenService,
                           @Qualifier("order_handler") OutputEventPublisher orderHandler,
-                          @Qualifier("notification_deque") Deque<OutputEvent> deque) {
+                          @Qualifier("notification_deque") Deque<OutputEvent> deque,
+                          SchedulerExecutorAssistant scheduler) {
         this.metricsProcessor = new MetricsProcessor();
         this.courierService = courierService;
         this.kitchenService = kitchenService;
+        this.schedulerAssistant = scheduler;
+
         //register public notification queue
         this.courierService.registerNotificationDeque(deque);
         this.kitchenService.registerNotificationDeque(deque);
         orderHandler.registerNotificationDeque(deque);
-        this.executorAssistant = buildExecutorAssistant(orderServerConfig, deque);
+
+        //schedule tasks
+        scheduleTasks(orderServerConfig, deque);
     }
 
-    private OrderExecutorAssistant buildExecutorAssistant(OrderServerConfig config, Deque<OutputEvent> deque) {
+    private void scheduleTasks(OrderServerConfig config, Deque<OutputEvent> deque) {
         int maxRetries = config.getPollingMaxRetries();
         Consumer<OutputEvent> dispatchOutputEvent = this::dispatchOutputEvent;
         Supplier<Boolean> hasPendingDeliveryOrders = this::hasPendingDeliveryOrders;
         SafeTask outputEventTask = new OutputEventHandler(deque, dispatchOutputEvent);
         SafeTask noMoreOrdersTask = new NoMoreOrdersMonitor(maxRetries, hasPendingDeliveryOrders, deque);
-        return new OrderExecutorAssistant(config, outputEventTask, noMoreOrdersTask);
+
+        this.schedulerAssistant.scheduleAtFixedRate(noMoreOrdersTask, MONITOR_START_DELAY_MILLIS,
+                config.getPeriodShutDownMonitorSeconds());
+        this.schedulerAssistant.scheduleAtFixedRate(outputEventTask, 0, config.getPollingTimeMillis());
     }
 
     private boolean hasPendingDeliveryOrders() {
@@ -160,9 +169,9 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
 
     @Override
     public void close() {
-        if (!this.executorAssistant.isOrdersMonitorTerminated()) {
+        if (!this.schedulerAssistant.isOrdersMonitorTerminated()) {
             log.info("[SYSTEM] queue processing shutting down, no orders remaining");
-            this.executorAssistant.shutdown();
+            this.schedulerAssistant.shutdown();
             this.courierService.shutdown();
             this.kitchenService.shutdown();
             if(null != this.context) {

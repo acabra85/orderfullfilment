@@ -1,5 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
+import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
@@ -8,23 +10,36 @@ import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = {OrderServerConfig.class})
+@TestPropertySource(value = "classpath:application.properties")
 class KitchenServiceImplTest {
 
     private KitchenService underTest;
     private final DeliveryOrder deliveryStub = DeliveryOrder.of("id-order-stub", "banana-split", 3);
     private Deque<OutputEvent> mockDeque;
+    private final OrderServerConfig config;
+
+    KitchenServiceImplTest(@Autowired OrderServerConfig config) {
+        this.config = config;
+    }
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        underTest = new KitchenServiceImpl();
+        underTest = new KitchenServiceImpl(new SchedulerExecutorAssistant(this.config));
         mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
     }
 
@@ -78,7 +93,7 @@ class KitchenServiceImplTest {
     }
 
     @Test
-    void notificationSentAfterPrepareMeal() throws ExecutionException, InterruptedException {
+    void notificationSentAfterPrepareMeal() throws InterruptedException {
         //given
         Mockito.doReturn(true).when(mockDeque).offer(Mockito.any(OrderPreparedEvent.class));
 

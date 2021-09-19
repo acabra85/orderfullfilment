@@ -81,7 +81,6 @@ public class CourierServiceImpl implements CourierDispatchService {
 
     @Override
     public void shutdown() {
-        this.courierFleet.shutdown();
-        log.info("Courier service shut down");
+        log.info("Courier service shutdown");
     }
 }

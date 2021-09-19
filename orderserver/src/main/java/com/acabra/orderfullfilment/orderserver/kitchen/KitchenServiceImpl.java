@@ -1,7 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
 import com.acabra.orderfullfilment.orderserver.core.CompletableTask;
-import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
@@ -25,23 +25,16 @@ public class KitchenServiceImpl implements KitchenService {
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
     private final AtomicReference<Deque<OutputEvent>> pubDeque;
     private final LongAdder mealsUnderPreparation;
-    private final ScheduledExecutorService cookExecutor;
     private final PriorityBlockingQueue<CompletableTask> mealDeque;
 
-    public KitchenServiceImpl() {
-        PriorityBlockingQueue<CompletableTask> deque = new PriorityBlockingQueue<>();
+    public KitchenServiceImpl(SchedulerExecutorAssistant scheduler) {
         this.kitchenReservationIds = new AtomicLong();
         this.internalIdToOrder = new ConcurrentHashMap<>();
         this.pubDeque = new AtomicReference<>();
         this.mealsUnderPreparation = new LongAdder();
-        this.mealDeque = deque;
-        this.cookExecutor = buildCookExecutor(CompletableTaskMonitor.of(deque));
-    }
-
-    private static ScheduledExecutorService buildCookExecutor(SafeTask safeTask) {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(safeTask, 1000L, 900, TimeUnit.MILLISECONDS);
-        return executorService;
+        this.mealDeque = new PriorityBlockingQueue<>();
+        //schedule monitoring meal deque
+        scheduler.scheduleAtFixedRate(CompletableTaskMonitor.of(this.mealDeque), 1000L, 900L);
     }
 
     private boolean reportMealPrepared(OutputEvent outputEvent) {
@@ -102,7 +95,6 @@ public class KitchenServiceImpl implements KitchenService {
 
     @Override
     public void shutdown() {
-        this.cookExecutor.shutdownNow();
         log.info("Kitchen shutdown");
     }
 

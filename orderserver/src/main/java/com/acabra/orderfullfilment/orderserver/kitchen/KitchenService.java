@@ -1,5 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
+import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 

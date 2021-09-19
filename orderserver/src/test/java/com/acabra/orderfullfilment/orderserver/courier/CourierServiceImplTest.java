@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 class CourierServiceImplTest {
 
     private CourierServiceImpl underTest;
-    private final CourierArrivedEvent VALID_COURIER_ARRIVED_EVENT = CourierArrivedEvent.of(1, 1, 1);
     private final OrderPreparedEvent VALID_ORDER_PREPARED_EVENT = OrderPreparedEvent.of(3213, "dasdsa", 3123123);
 
     private CourierFleet fleetMock;
@@ -56,7 +55,7 @@ class CourierServiceImplTest {
         Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.notDispatched());
 
         //when
-        Optional actual = underTest.dispatchRequest(null, reservationId);
+        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId);
 
         //then
         Mockito.verify(fleetMock).dispatch(null);

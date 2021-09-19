@@ -1,5 +1,8 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
+import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
+import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.courier.model.CourierStatus;
@@ -12,7 +15,12 @@ import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -23,9 +31,18 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = {OrderServerConfig.class})
+@TestPropertySource(value = "classpath:application.properties")
 class CourierFleetImplTest {
 
+    private final OrderServerConfig config;
     private CourierFleet underTest;
+    private SchedulerExecutorAssistant scheduler;
+
+    CourierFleetImplTest(@Autowired OrderServerConfig config) {
+        this.config = config;
+    }
 
     private final DeliveryOrder validOrder = DeliveryOrder.of("order-it-test", "my-meal", 3131221);
     private final EtaEstimator etaEstimatorMock = Mockito.mock(EtaEstimator.class);
@@ -34,18 +51,14 @@ class CourierFleetImplTest {
     public void setup() {
         int fixedTravelTime = 3;
         Mockito.doReturn(fixedTravelTime).when(etaEstimatorMock).estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
-    }
-
-    @AfterEach
-    public void teardown() {
-        underTest.shutdown();
+        this.scheduler = new SchedulerExecutorAssistant(this.config);
     }
 
     @Test
     void mustDispatchANewCourier_givenAllExistingCouriersAreDispatched() {
         //given
         List<Courier> originalCouriers = buildCourierList(4, CourierStatus.DISPATCHED);
-        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock, this.scheduler);
         Assertions.assertThat(underTest.availableCouriers()).isEqualTo(0);
         Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
 
@@ -63,7 +76,7 @@ class CourierFleetImplTest {
     void mustReturn0_couriersAvailable() {
         //given
         List<Courier> originalCouriers = buildCourierList(4, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock, this.scheduler);
         int totalAvailableBefore = underTest.availableCouriers();
         Assertions.assertThat(totalAvailableBefore).isEqualTo(originalCouriers.size());
         Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
@@ -85,7 +98,7 @@ class CourierFleetImplTest {
         //given
         int startingCouriers = 4;
         List<Courier> originalCouriers = buildCourierList(startingCouriers, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock);
+        underTest = new CourierFleetImpl(originalCouriers, etaEstimatorMock, this.scheduler);
         int totalAvailableBefore = underTest.availableCouriers();
         Assertions.assertThat(totalAvailableBefore).isEqualTo(originalCouriers.size());
         Assertions.assertThat(underTest.fleetSize()).isEqualTo(originalCouriers.size());
@@ -111,7 +124,7 @@ class CourierFleetImplTest {
     void mustFail_unableToFindCourierId() {
         //given
         List<Courier> list = buildCourierList(4, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
         int courierIdInvalid = 55;
         Assertions.assertThat(list).noneMatch(courier -> courier.id == courierIdInvalid);
 
@@ -128,7 +141,7 @@ class CourierFleetImplTest {
     void mustSucceedReleaseOneCourier_givenAllCouriersDispatched() {
         //given
         List<Courier> list = buildCourierList(4, CourierStatus.DISPATCHED);
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
         int validAssignedId = 3;
         Assertions.assertThat(list).anyMatch(courier -> courier.id == validAssignedId);
         int totalAvailableBefore = underTest.availableCouriers();
@@ -145,7 +158,7 @@ class CourierFleetImplTest {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
         underTest.registerNotificationDeque(deque);
         int expectedCourierId = 0;
 
@@ -174,7 +187,7 @@ class CourierFleetImplTest {
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
         underTest.registerNotificationDeque(dequeMock);
 
         int expectedCourierId = 0;
@@ -199,7 +212,7 @@ class CourierFleetImplTest {
         Deque<OutputEvent> dequeMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(RuntimeException.class).when(dequeMock).offer(Mockito.any(CourierArrivedEvent.class));
 
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
         underTest.registerNotificationDeque(dequeMock);
 
         int expectedCourierId = 0;
@@ -221,7 +234,7 @@ class CourierFleetImplTest {
     public void mustCompleteNotificationAsFalse_noDequeAvailable() throws InterruptedException, ExecutionException {
         //given
         List<Courier> list = buildCourierList(1, CourierStatus.AVAILABLE);
-        underTest = new CourierFleetImpl(list, etaEstimatorMock);
+        underTest = new CourierFleetImpl(list, etaEstimatorMock, this.scheduler);
 
         int expectedCourierId = 0;
 

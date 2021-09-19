@@ -5,6 +5,7 @@ import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.core.MetricsProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderRequestHandler;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.courier.CourierFleetImpl;
 import com.acabra.orderfullfilment.orderserver.courier.CourierServiceImpl;
@@ -22,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -84,10 +84,11 @@ public class StrategyMatchedIntegrationTest {
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock,
                                                  OrderRequestHandler orderHandler) {
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
-        CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock);
+        SchedulerExecutorAssistant scheduler = new SchedulerExecutorAssistant(serverConfig);
+        CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock, scheduler);
         OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherMatchedImpl();
         CourierDispatchService courierService = new CourierServiceImpl(courierFleet, orderCourierMatcher);
-        KitchenService kitchen = new KitchenServiceImpl();
-        return new OrderProcessor(serverConfig, courierService, kitchen, orderHandler, deque);
+        KitchenService kitchen = new KitchenServiceImpl(scheduler);
+        return new OrderProcessor(serverConfig, courierService, kitchen, orderHandler, deque, scheduler);
     }
 }

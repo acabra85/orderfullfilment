@@ -1,7 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
 import com.acabra.orderfullfilment.orderserver.core.CompletableTask;
-import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
@@ -35,18 +35,17 @@ public class CourierFleetImpl implements CourierFleet {
     private final AtomicReference<Deque<OutputEvent>> pubDeque;
     private final EtaEstimator etaEstimator;
     private final PriorityBlockingQueue<CompletableTask> scheduleDeque;
-    private final ScheduledExecutorService dispatchExecutor;
 
-    public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator) {
-        PriorityBlockingQueue<CompletableTask> dispatchDeque = new PriorityBlockingQueue<>();
+    public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator, SchedulerExecutorAssistant executor) {
         this.availableCouriers = new ConcurrentLinkedDeque<>(couriers.stream()
                 .filter(Courier::isAvailable).collect(DEQUE_COLLECTOR));
         this.dispatchedCouriers = buildDispatchedMap(couriers);
         this.totalCouriers = new AtomicInteger(couriers.size());
         this.pubDeque = new AtomicReference<>();
         this.etaEstimator = etaEstimator;
-        this.scheduleDeque = dispatchDeque;
-        this.dispatchExecutor = startMonitor(CompletableTaskMonitor.of(dispatchDeque));
+        this.scheduleDeque = new PriorityBlockingQueue<>();
+        //schedule monitoring courier schedule deque
+        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500, 900);
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
@@ -101,12 +100,6 @@ public class CourierFleetImpl implements CourierFleet {
         return publish(outputEvent);
     }
 
-    private static ScheduledExecutorService startMonitor(SafeTask safeTask) {
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-        executorService.scheduleAtFixedRate(safeTask, 0, 900, TimeUnit.MILLISECONDS);
-        return executorService;
-    }
-
     @Override
     public int fleetSize() {
         return totalCouriers.get();
@@ -130,11 +123,6 @@ public class CourierFleetImpl implements CourierFleet {
     @Override
     public Logger log() {
         return log;
-    }
-
-    @Override
-    public void shutdown() {
-        this.dispatchExecutor.shutdownNow();
     }
 
     private CompletableTask buildCompletableTask(int courierId, long eta, Function<OutputEvent, Boolean> report) {

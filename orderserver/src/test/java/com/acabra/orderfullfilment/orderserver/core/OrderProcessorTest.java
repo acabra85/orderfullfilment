@@ -1,6 +1,7 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.courier.CourierServiceImpl;
 import com.acabra.orderfullfilment.orderserver.event.*;
@@ -36,6 +37,7 @@ class OrderProcessorTest {
     private OutputEventPublisher outputEventPublisherMock;
     private CourierDispatchService courierServiceMock;
     private KitchenService kitchenServiceMock;
+    private SchedulerExecutorAssistant scheduler;
 
     OrderProcessorTest(@Autowired OrderServerConfig config) {
         this.config = config;
@@ -47,6 +49,7 @@ class OrderProcessorTest {
         courierServiceMock = Mockito.mock(CourierServiceImpl.class);
         kitchenServiceMock = Mockito.mock(KitchenServiceImpl.class);
         outputEventPublisherMock = Mockito.mock(OrderRequestHandler.class);
+        this.scheduler = new SchedulerExecutorAssistant(this.config);
     }
 
     @AfterEach
@@ -80,7 +83,8 @@ class OrderProcessorTest {
 
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
@@ -122,7 +126,8 @@ class OrderProcessorTest {
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(courierArrivedEvent); //send the event on the queue for processing
@@ -163,7 +168,8 @@ class OrderProcessorTest {
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
 
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(courierDispatchedEvent); //send the event on the queue for processing
@@ -215,7 +221,8 @@ class OrderProcessorTest {
 
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(orderReceivedEvent);
@@ -272,7 +279,8 @@ class OrderProcessorTest {
 
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(orderReceivedEvent);
@@ -318,7 +326,8 @@ class OrderProcessorTest {
 
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         deque.offer(orderPickedUpEventStub);
@@ -361,7 +370,8 @@ class OrderProcessorTest {
 
         //#setup handler
         Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
-        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock, deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
 
         //when
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
