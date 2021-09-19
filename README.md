@@ -10,14 +10,14 @@ This is a real time simulator of an online food delivery order system.
 - Java JDK 11 or higher is installed https://adoptopenjdsk.net/installation.html
 - Test the installation with this command ```java -version```
 - place your terminal in the root of the project (cd orderfullfilment)
-- assign execute permissions to the mvnw file ```chmod +x mvnw```
+- assign execute permissions to the runme file ```chmod +x runme```
 
 ### [Unix systems or Windows Git Bash terminal]
 The system has two components a server and an order generator:
 
 1. Build the jar files run the command (This will build both systems):
 
-    ```./mvnw clean package > build-result.orig && tail -12 build-result.orig```
+    ```./runme```
     
     **Note:** The output is directed to a file to improve execution time.
 
@@ -28,9 +28,9 @@ The system has two components a server and an order generator:
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
-    ```java -jar orderserver/target/orderserver-1.5.jar```
+    ```java -jar orderserver/target/orderserver-1.6.jar```
     or choose the strategy matched
-    ```java -jar orderserver/target/orderserver-1.5.jar --orderserver.strategy=matched```
+    ```java -jar orderserver/target/orderserver-1.6.jar --orderserver.strategy=matched```
 
 3. Start the order generator system (see the args table)
     ```java -jar ordergenerator/target/ordergenerator-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
@@ -127,4 +127,4 @@ For a detail of the configuration of the server system take a look at [applicati
 
 It is possible to run the server with a different configuration by launching the application with the parameter **--spring.config.location**
 e.g.
-```java -jar orderserver/target/orderserver-1.5.jar --spring.config.location=/fullpath/to/file/application.properties```
+```java -jar orderserver/target/orderserver-1.6.jar --spring.config.location=/fullpath/to/file/application.properties```

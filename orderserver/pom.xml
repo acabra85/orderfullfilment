@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.acabra</groupId>
         <artifactId>orderfullfilment</artifactId>
-        <version>1.5</version>
+        <version>1.6</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>orderserver</artifactId>
-    <version>1.5</version>
+    <version>1.6</version>
     <name>orderserver</name>
     <description>orderfullfilment-orderserver</description>
     <dependencies>
