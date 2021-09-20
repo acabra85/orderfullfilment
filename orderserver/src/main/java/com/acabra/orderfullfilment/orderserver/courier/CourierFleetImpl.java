@@ -63,8 +63,9 @@ public class CourierFleetImpl implements CourierFleet {
         Courier courier = getAvailableCourier();
         courier.dispatch();
         dispatchedCouriers.put(courier.id, courier);
-        int estimatedTravelTime = etaEstimator.estimateCourierTravelTimeInSeconds(courier);
-        return DispatchResult.of(courier.id, schedule(estimatedTravelTime, courier.id), estimatedTravelTime);
+        long etaInMillis = etaEstimator.estimateCourierTravelTimeInSeconds(courier) * 1000L;
+        CompletableFuture<Boolean> schedule = schedule(etaInMillis, courier.id);
+        return DispatchResult.of(courier.id, schedule, etaInMillis);
     }
 
     private Courier getAvailableCourier() {
@@ -89,8 +90,8 @@ public class CourierFleetImpl implements CourierFleet {
         log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 
-    private CompletableFuture<Boolean> schedule(int timeToDestination, int courierId) {
-        CompletableTask scheduledArrival = buildCompletableTask(courierId, timeToDestination * 1000L,
+    private CompletableFuture<Boolean> schedule(long timeToDestMillis, int courierId) {
+        CompletableTask scheduledArrival = buildCompletableTask(courierId, timeToDestMillis,
                 this::reportCourierArrived);
         scheduleDeque.offer(scheduledArrival);
         return scheduledArrival.getCompletionFuture();
@@ -125,9 +126,9 @@ public class CourierFleetImpl implements CourierFleet {
         return log;
     }
 
-    private CompletableTask buildCompletableTask(int courierId, long eta, Function<OutputEvent, Boolean> report) {
+    private CompletableTask buildCompletableTask(int courierId, long etaMillis, Function<OutputEvent, Boolean> report) {
         return new CompletableTask() {
-            public final long arrivalAt = KitchenClock.now() + eta;
+            public final long arrivalAt = KitchenClock.now() + etaMillis;
             public final CompletableFuture<Boolean> completedFuture = new CompletableFuture<>();
 
             @Override

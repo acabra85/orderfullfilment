@@ -35,7 +35,7 @@ public class CourierServiceImpl implements CourierDispatchService {
         Integer courierId = dispatchResult.courierId;
         if(null != courierId) {
             OutputEvent event = CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, kitchenReservationId,
-                    dispatchResult.estimatedTravelTime);
+                    dispatchResult.ettMillis);
             publish(event);
             return Optional.of(courierId);
         }
