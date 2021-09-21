@@ -1,0 +1,48 @@
+{
+  "properties": [
+    {
+      "name": "orderserver.strategy",
+      "type": "java.lang.String",
+      "description": "Determines the strategy to be used when dispatching couriers (match, fifo).",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.OrderServerConfig"
+    },
+    {
+      "name": "orderserver.thread-count",
+      "type": "java.lang.String",
+      "description": "The total amount of threads to concurrently poll events from the notification queue.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.OrderServerConfig"
+    },
+    {
+      "name": "orderserver.period-shut-down-monitor-millis",
+      "type": "java.lang.String",
+      "description": "time in seconds for checking if there are pending orders on the queue.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.OrderServerConfig"
+    },
+    {
+      "name": "orderserver.polling-max-retries",
+      "type": "java.lang.String",
+      "description": "The total amount of retries available before attempting to shut down the consumer threads.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.OrderServerConfig"
+    },
+    {
+      "name": "orderserver.polling-time-millis",
+      "type": "java.lang.String",
+      "description": "The sleep time of concurrent threads after polling the notification queue.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.OrderServerConfig"
+    },
+    {
+      "name": "courier.min-eta",
+      "type": "java.lang.String",
+      "description": "Courier travel time lower boundary for the uniformly distribution.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.CourierConfig",
+      "defaultValue": 3
+    },
+    {
+      "name": "courier.max-eta",
+      "type": "java.lang.String",
+      "description": "Courier travel time upper boundary for the uniformly distribution.",
+      "sourceType": "com.acabra.orderfullfilment.orderserver.config.CourierConfig",
+      "defaultValue": 15
+    }
+  ]
+}

@@ -45,7 +45,7 @@ public class CourierFleetImpl implements CourierFleet {
         this.etaEstimator = etaEstimator;
         this.scheduleDeque = new PriorityBlockingQueue<>();
         //schedule monitoring courier schedule deque
-        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500, 900);
+        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500L, 900L);
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {

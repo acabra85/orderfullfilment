@@ -69,7 +69,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         SafeTask noMoreOrdersTask = new NoMoreOrdersMonitor(maxRetries, hasPendingDeliveryOrders, deque);
 
         this.schedulerAssistant.scheduleAtFixedRate(noMoreOrdersTask, MONITOR_START_DELAY_MILLIS,
-                config.getPeriodShutDownMonitorSeconds());
+                config.getPeriodShutDownMonitorMillis());
         this.schedulerAssistant.scheduleAtFixedRate(outputEventTask, 0, config.getPollingTimeMillis());
     }
 
