@@ -45,7 +45,7 @@ public class CourierFleetImpl implements CourierFleet {
         this.etaEstimator = etaEstimator;
         this.scheduleDeque = new PriorityBlockingQueue<>();
         //schedule monitoring courier schedule deque
-        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500, 900);
+        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500L, 350L);
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
@@ -138,7 +138,8 @@ public class CourierFleetImpl implements CourierFleet {
 
             @Override
             public void accept(Long now) {
-                OutputEvent evt = CourierArrivedEvent.of(courierId, arrivalAt, now);
+                CourierArrivedEvent evt = CourierArrivedEvent.of(courierId, arrivalAt, now);
+                log.info("courierId[{}] delayed: {}ms", (now - arrivalAt), evt.courierId);
                 this.completedFuture.complete(report.apply(evt));
             }
 

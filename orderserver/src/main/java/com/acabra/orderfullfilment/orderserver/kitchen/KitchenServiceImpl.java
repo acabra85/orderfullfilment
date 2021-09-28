@@ -34,7 +34,7 @@ public class KitchenServiceImpl implements KitchenService {
         this.mealsUnderPreparation = new LongAdder();
         this.mealDeque = new PriorityBlockingQueue<>();
         //schedule monitoring meal deque
-        scheduler.scheduleAtFixedRate(CompletableTaskMonitor.of(this.mealDeque), 1000L, 900L);
+        scheduler.scheduleAtFixedRate(CompletableTaskMonitor.of(this.mealDeque), 1000L, 500L);
     }
 
     private boolean reportMealPrepared(OutputEvent outputEvent) {

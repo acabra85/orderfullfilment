@@ -2,11 +2,13 @@ package com.acabra.orderfullfilment.orderserver.config;
 
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.ConstructorBinding;
 import org.springframework.lang.NonNull;
-import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-@Component
+@ConstructorBinding
+@ConfigurationProperties(prefix = "courier")
 @Validated
 public class CourierConfig {
 
