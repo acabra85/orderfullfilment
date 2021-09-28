@@ -164,7 +164,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         MetricsProcessor.DeliveryMetricsSnapshot snapshot = this.metricsProcessor.snapshot();
         log.info(String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms, " +
                         "Total Orders Received {}, Total Orders Delivered {}", snapshot.avgFoodWaitTime,
-                snapshot.avgFoodWaitTime), snapshot.totalOrdersReceived, snapshot.totalOrdersDelivered);
+                snapshot.avgCourierWaitTime), snapshot.totalOrdersReceived, snapshot.totalOrdersDelivered);
     }
 
     @Override

@@ -24,7 +24,7 @@ public class CompletableTaskMonitor extends SafeTask {
     @Override
     protected void doWork() {
         long now = KitchenClock.now();
-        if (!deque.isEmpty() && deque.peek().isReady(now)) {
+        while (!deque.isEmpty() && deque.peek().isReady(now)) {
             CompletableTask task = deque.poll(0L, TimeUnit.MILLISECONDS);
             if(task != null) {
                 task.accept(now);
