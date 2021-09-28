@@ -7,7 +7,7 @@ This is a real time simulator of an online food delivery order system.
 # Run
  
 #### Pre-requisites
-- Java JDK 11 or higher is installed https://adoptopenjdsk.net/installation.html
+- Java JDK 11 or higher is installed https://adoptopenjdk.net/installation.html
 - Test the installation with this command ```java -version```
 - place your terminal in the root of the project (cd orderfullfilment)
 - assign execute permissions to the runme file ```chmod +x runme```
