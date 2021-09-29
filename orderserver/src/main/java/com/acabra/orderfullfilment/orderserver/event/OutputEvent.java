@@ -1,6 +1,9 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
-public abstract class OutputEvent {
+import java.util.Comparator;
+
+public abstract class OutputEvent implements Comparable<OutputEvent> {
+    public static final Comparator<EventType> EVENT_TYPE_COMPARATOR = EventType.comparator();
     public final EventType type;
     public final long createdAt;
 
@@ -11,5 +14,11 @@ public abstract class OutputEvent {
 
     public EventType getType() {
         return type;
+    }
+
+    @Override
+    public int compareTo(OutputEvent o) {
+        int compare = EVENT_TYPE_COMPARATOR.compare(type, o.type);
+        return 0 != compare ? compare : Long.compare(createdAt, o.createdAt);
     }
 }

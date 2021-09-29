@@ -32,7 +32,7 @@ public class CourierFleetImpl implements CourierFleet {
     private final ConcurrentLinkedDeque<Courier> availableCouriers;
 
     private final AtomicInteger totalCouriers;
-    private final AtomicReference<Deque<OutputEvent>> pubDeque;
+    private final AtomicReference<Queue<OutputEvent>> pubDeque;
     private final EtaEstimator etaEstimator;
     private final PriorityBlockingQueue<CompletableTask> scheduleDeque;
 
@@ -112,12 +112,12 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return this.pubDeque.get();
     }
 

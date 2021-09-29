@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 
 import java.util.Deque;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -18,7 +19,7 @@ import java.util.function.Consumer;
 @Slf4j
 public class OrderRequestHandler implements OutputEventPublisher, Consumer<DeliveryOrderRequestDTO> {
 
-    private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
+    private final AtomicReference<Queue<OutputEvent>> pubDeque = new AtomicReference<>();
 
     @Override
     public void accept(DeliveryOrderRequestDTO deliveryOrderRequestDTO) {
@@ -32,12 +33,12 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return pubDeque.get();
     }
 

@@ -7,8 +7,8 @@ import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.sql.Time;
 import java.util.Deque;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,19 +20,19 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
 
     private final Deque<TimedEvent<OrderPreparedEvent>> mealsPrepared = new ConcurrentLinkedDeque<>();
     private final Deque<TimedEvent<CourierArrivedEvent>> couriersArrived = new ConcurrentLinkedDeque<>();
-    private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
+    private final AtomicReference<Queue<OutputEvent>> pubDeque = new AtomicReference<>();
 
     public OrderCourierMatcherFIFOImpl() {
         log.info("[SYSTEM] Initialized the server using the dispatch FIFO strategy");
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return this.pubDeque.get();
     }
 

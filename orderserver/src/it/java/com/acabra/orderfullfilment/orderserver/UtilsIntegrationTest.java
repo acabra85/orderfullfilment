@@ -1,6 +1,5 @@
 package com.acabra.orderfullfilment.orderserver;
 
-import com.acabra.orderfullfilment.orderserver.core.MetricsProcessor;
 import com.acabra.orderfullfilment.orderserver.core.OrderRequestHandler;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
@@ -16,7 +15,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;

@@ -1,18 +1,30 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
+import java.util.Comparator;
+
 public enum EventType {
-    ORDER_RECEIVED("order received"),
-    COURIER_DISPATCHED("courier dispatched"),
-    ORDER_PREPARED("order prepared"),
-    COURIER_ARRIVED("courier arrived"),
-    ORDER_PICKED_UP("order picked up"),
-    ORDER_DELIVERED("order delivered"),
-    SHUT_DOWN_REQUEST("shut down request"), // a request to shut down the workers
-    NO_PENDING_ORDERS("no pending orders"); // the orders queue is empty all workers are waiting
+    NO_PENDING_ORDERS("no pending orders", 0), // the orders queue is empty all workers are waiting
+    ORDER_DELIVERED("order delivered", 1),
+    ORDER_PICKED_UP("order picked up", 2),
+    COURIER_DISPATCHED("courier dispatched", 3),
+    COURIER_ARRIVED("courier arrived", Constants.SHARED_PRIORITY),
+    ORDER_PREPARED("order prepared", Constants.SHARED_PRIORITY),
+    ORDER_RECEIVED("order received", 5);
 
+    private static final Comparator<EventType> COMP = Comparator.comparing(a -> a.priority);
     public final String message;
+    private final int priority;
 
-    EventType(String message) {
+    EventType(String message, int priority) {
         this.message = message;
+        this.priority = priority;
+    }
+
+    public static Comparator<EventType> comparator() {
+        return COMP;
+    }
+
+    private static class Constants {
+        public static final int SHARED_PRIORITY = 4;
     }
 }

@@ -10,11 +10,11 @@ public class MetricsProcessor {
     private final LongAdder totalOrdersReceived = new LongAdder();
     private final LongAdder ordersPrepareRequest = new LongAdder();
 
-    void acceptFoodWaitTime(long time) {
+    public void acceptFoodWaitTime(long time) {
         foodWaitTimeStats.accept(time);
     }
 
-    void acceptCourierWaitTime(long time) {
+    public void acceptCourierWaitTime(long time) {
         courierWaitTimeStats.accept(time);
     }
 

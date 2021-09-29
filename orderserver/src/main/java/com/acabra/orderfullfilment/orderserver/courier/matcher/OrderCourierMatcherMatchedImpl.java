@@ -7,9 +7,9 @@ import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.util.Deque;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @ConditionalOnProperty(prefix = "orderserver", name = "strategy", havingValue = "matched")
 public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
 
-    private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
+    private final AtomicReference<Queue<OutputEvent>> pubDeque = new AtomicReference<>();
     private final Map<Long, TimedEvent<OrderPreparedEvent>> ordersPrepared = new ConcurrentHashMap<>();
     private final Map<Integer, TimedEvent<CourierArrivedEvent>> couriersArrived = new ConcurrentHashMap<>();
     private final Map<Integer, Long> courierToReservationMap = new ConcurrentHashMap<>();
@@ -47,7 +47,7 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
             );
             return true;
         } catch (Exception e) {
-            log.error("Unable to accept the current event {}", e.getMessage());
+            log.error("[<<ERROR>>] Unable to accept the current event {}", e.getMessage());
         }
         return false;
     }
@@ -84,12 +84,12 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return this.pubDeque.get();
     }
 

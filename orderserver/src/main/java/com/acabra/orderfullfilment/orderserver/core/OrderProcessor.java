@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Deque;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -45,7 +46,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
                           CourierDispatchService courierService,
                           KitchenService kitchenService,
                           @Qualifier("order_handler") OutputEventPublisher orderHandler,
-                          @Qualifier("notification_deque") Deque<OutputEvent> deque,
+                          @Qualifier("notification_deque") Queue<OutputEvent> deque,
                           SchedulerExecutorAssistant scheduler) {
         this.metricsProcessor = new MetricsProcessor();
         this.courierService = courierService;
@@ -61,7 +62,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         scheduleTasks(orderServerConfig, deque);
     }
 
-    private void scheduleTasks(OrderServerConfig config, Deque<OutputEvent> deque) {
+    private void scheduleTasks(OrderServerConfig config, Queue<OutputEvent> deque) {
         int maxRetries = config.getPollingMaxRetries();
         Consumer<OutputEvent> dispatchOutputEvent = this::dispatchOutputEvent;
         Supplier<Boolean> hasPendingDeliveryOrders = this::hasPendingDeliveryOrders;
@@ -182,8 +183,8 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     }
 
     @Bean("notification_deque")
-    public static Deque<OutputEvent> buildNotificationDeque() {
-        return new ConcurrentLinkedDeque<>();
+    public static Queue<OutputEvent> buildNotificationDeque() {
+        return new PriorityBlockingQueue<>();
     }
 
     public MetricsProcessor.DeliveryMetricsSnapshot getMetricsSnapshot() {

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Deque;
 import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,7 +24,7 @@ import java.util.function.Function;
 public class KitchenServiceImpl implements KitchenService {
     private final AtomicLong kitchenReservationIds;
     private final ConcurrentHashMap<Long, DeliveryOrder> internalIdToOrder;
-    private final AtomicReference<Deque<OutputEvent>> pubDeque;
+    private final AtomicReference<Queue<OutputEvent>> pubDeque;
     private final LongAdder mealsUnderPreparation;
     private final PriorityBlockingQueue<CompletableTask> mealDeque;
 
@@ -74,12 +75,12 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return this.pubDeque.get();
     }
 

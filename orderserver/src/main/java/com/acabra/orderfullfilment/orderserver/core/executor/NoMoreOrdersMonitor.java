@@ -7,16 +7,17 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Deque;
+import java.util.Queue;
 import java.util.function.Supplier;
 
 @Slf4j
 public class NoMoreOrdersMonitor extends SafeTask {
     private final RetryBudget retryBudget;
     private final Supplier<Boolean> pendingDelivery;
-    private final Deque<OutputEvent> deque;
+    private final Queue<OutputEvent> deque;
     boolean run = true;
 
-    public NoMoreOrdersMonitor(int pollingMaxRetries, Supplier<Boolean> pendingDelivery, Deque<OutputEvent> deque) {
+    public NoMoreOrdersMonitor(int pollingMaxRetries, Supplier<Boolean> pendingDelivery, Queue<OutputEvent> deque) {
         this.retryBudget = RetryBudget.of(pollingMaxRetries);
         this.pendingDelivery = pendingDelivery;
         this.deque = deque;

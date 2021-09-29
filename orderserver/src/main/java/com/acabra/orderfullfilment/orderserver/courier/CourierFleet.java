@@ -6,7 +6,7 @@ import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
 import java.util.NoSuchElementException;
-import java.util.Deque;
+import java.util.Queue;
 
 public interface CourierFleet extends OutputEventPublisher {
 
@@ -40,5 +40,5 @@ public interface CourierFleet extends OutputEventPublisher {
     /**
      * Registration of the notification queue to be used to publish the Ready for Pickup event
      */
-    void registerNotificationDeque(Deque<OutputEvent> deque);
+    void registerNotificationDeque(Queue<OutputEvent> deque);
 }

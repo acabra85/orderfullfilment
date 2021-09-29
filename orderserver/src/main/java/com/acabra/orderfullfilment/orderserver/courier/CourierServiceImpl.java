@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Deque;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component
@@ -19,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class CourierServiceImpl implements CourierDispatchService {
 
     private final CourierFleet courierFleet;
-    private final AtomicReference<Deque<OutputEvent>> pubDeque;
+    private final AtomicReference<Queue<OutputEvent>> pubDeque;
     private final OrderCourierMatcher orderCourierMatcher;
 
     @Autowired
@@ -58,14 +59,14 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public void registerNotificationDeque(Deque<OutputEvent> deque) {
+    public void registerNotificationDeque(Queue<OutputEvent> deque) {
         this.pubDeque.set(deque);
         this.orderCourierMatcher.registerNotificationDeque(deque);
         this.courierFleet.registerNotificationDeque(deque);
     }
 
     @Override
-    public Deque<OutputEvent> getPubDeque() {
+    public Queue<OutputEvent> getPubDeque() {
         return pubDeque.get();
     }
 

@@ -2,7 +2,7 @@ package com.acabra.orderfullfilment.orderserver.event;
 
 import org.slf4j.Logger;
 
-import java.util.Deque;
+import java.util.Queue;
 
 public interface OutputEventPublisher {
 
@@ -10,13 +10,13 @@ public interface OutputEventPublisher {
      * Implementations of this interface allow deferred registration to a blocking queue of events
      * @param deque the blocking queue that will be used for publishing
      */
-    void registerNotificationDeque(Deque<OutputEvent> deque);
+    void registerNotificationDeque(Queue<OutputEvent> deque);
 
     /**
      * A reference to the pubDeque to allow publication of events
      * @return an atomic reference to the pudDeque
      */
-    Deque<OutputEvent> getPubDeque();
+    Queue<OutputEvent> getPubDeque();
 
     /**
      * Provides the logger for the implementation
@@ -25,7 +25,7 @@ public interface OutputEventPublisher {
     Logger log();
 
     default boolean publish(OutputEvent event) {
-        Deque<OutputEvent> pubDeque = getPubDeque();
+        Queue<OutputEvent> pubDeque = getPubDeque();
         if(null != pubDeque) {
             try {
                 pubDeque.offer(event);
