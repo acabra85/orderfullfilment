@@ -139,7 +139,7 @@ public class CourierFleetImpl implements CourierFleet {
             @Override
             public void accept(Long now) {
                 CourierArrivedEvent evt = CourierArrivedEvent.of(courierId, arrivalAt, now);
-                log.info("courierId[{}] delayed: {}ms", (now - arrivalAt), evt.courierId);
+                //log.info("courierId[{}] delayed: {}ms", (now - arrivalAt), evt.courierId);
                 this.completedFuture.complete(report.apply(evt));
             }
 

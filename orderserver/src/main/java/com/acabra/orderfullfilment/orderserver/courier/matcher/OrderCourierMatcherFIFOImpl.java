@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.sql.Time;
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicReference;
@@ -17,8 +18,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @ConditionalOnProperty(prefix = "orderserver", name = "strategy", havingValue = "fifo")
 public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
 
-    private final Deque<OrderPreparedEvent> mealsPrepared = new ConcurrentLinkedDeque<>();
-    private final Deque<CourierArrivedEvent> couriersArrived = new ConcurrentLinkedDeque<>();
+    private final Deque<TimedEvent<OrderPreparedEvent>> mealsPrepared = new ConcurrentLinkedDeque<>();
+    private final Deque<TimedEvent<CourierArrivedEvent>> couriersArrived = new ConcurrentLinkedDeque<>();
     private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
 
     public OrderCourierMatcherFIFOImpl() {
@@ -43,11 +44,12 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     @Override
     public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent) {
         try {
-            CourierArrivedEvent courierEvt = couriersArrived.poll();
+            TimedEvent<CourierArrivedEvent> courierEvt = couriersArrived.poll();
             if (null != courierEvt) {
-                publishedOrderPickedUpEvent(courierEvt, orderPreparedEvent);
+                long waitTime = courierEvt.stop();
+                publishedOrderPickedUpEvent(courierEvt.getEvent(), orderPreparedEvent, false, waitTime);
             } else {
-                mealsPrepared.offer(orderPreparedEvent);
+                mealsPrepared.offer(new TimedEvent<>(orderPreparedEvent));
             }
             return true;
         } catch (Exception e) {
@@ -59,11 +61,12 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     @Override
     public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierEvt) {
         try {
-            OrderPreparedEvent orderEvt = mealsPrepared.poll();
-            if (null != orderEvt) {
-                publishedOrderPickedUpEvent(courierEvt, orderEvt);
+            TimedEvent<OrderPreparedEvent> timedEvent = mealsPrepared.poll();
+            if (null != timedEvent) {
+                long waitTime = timedEvent.stop();
+                publishedOrderPickedUpEvent(courierEvt, timedEvent.getEvent(), true, waitTime);
             } else {
-                couriersArrived.offer(courierEvt);
+                couriersArrived.offer(new TimedEvent<>(courierEvt));
             }
             return true;
         } catch (Exception e) {
@@ -72,12 +75,9 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
         return false;
     }
 
-    private void publishedOrderPickedUpEvent(CourierArrivedEvent courierEvt,
-                                             OrderPreparedEvent orderEvt) {
-        long now = KitchenClock.now();
-        OrderPickedUpEvent orderPickedUpEvent = OrderPickedUpEvent.of(now, courierEvt,
-                orderEvt.createdAt, orderEvt.kitchenReservationId);
-        publish(orderPickedUpEvent);
+    private void publishedOrderPickedUpEvent(CourierArrivedEvent courierEvt, OrderPreparedEvent orderEvt,
+                                             boolean courierCompleted, long waitTime) {
+        publish(OrderPickedUpEvent.of(KitchenClock.now(), courierEvt, orderEvt, courierCompleted, waitTime));
     }
 
     //this event can be ignored as the matching takes place upon courier or meal arrival

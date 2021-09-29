@@ -309,10 +309,11 @@ class OrderProcessorTest {
     void mustProcessOrderPickedUpEvent_andDeliveryEvent_instantDelivery() throws InterruptedException {
         //given
         int courierId = 1;
-        long cookReservationId = 0L;
+        long kitchenReservationId = 0L;
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent
-                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L), 9800L, cookReservationId);
+                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L),
+                        OrderPreparedEvent.of(kitchenReservationId, "order-id", 900L), true, 500L);
         OrderDeliveredEvent orderDeliveredEvent = OrderDeliveredEvent.of(orderPickedUpEventStub);
 
         //#setup courier
@@ -354,10 +355,11 @@ class OrderProcessorTest {
     void mustFinishNoOrdersReceived() {
         //given
         int courierId = 1;
-        long cookReservationId = 0L;
+        long kitchenReservationId = 0L;
         Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent
-                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L), 9800L, cookReservationId);
+                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L),
+                        OrderPreparedEvent.of(kitchenReservationId, "order-id", 900L), false, 500L);
         OrderDeliveredEvent orderDeliveredEvent = OrderDeliveredEvent.of(orderPickedUpEventStub);
 
         //#setup courier

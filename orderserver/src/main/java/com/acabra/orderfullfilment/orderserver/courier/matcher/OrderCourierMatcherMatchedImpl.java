@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
 
     private final AtomicReference<Deque<OutputEvent>> pubDeque = new AtomicReference<>();
-    private final Map<Long, OrderPreparedEvent> ordersPrepared = new ConcurrentHashMap<>();
-    private final Map<Integer, CourierArrivedEvent> couriersArrived = new ConcurrentHashMap<>();
+    private final Map<Long, TimedEvent<OrderPreparedEvent>> ordersPrepared = new ConcurrentHashMap<>();
+    private final Map<Integer, TimedEvent<CourierArrivedEvent>> couriersArrived = new ConcurrentHashMap<>();
     private final Map<Integer, Long> courierToReservationMap = new ConcurrentHashMap<>();
     private final Map<Long, Integer> reservationToCourierMap = new ConcurrentHashMap<>();
 
@@ -35,11 +35,12 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
             couriersArrived.compute(
                 Objects.requireNonNull(reservationToCourierMap.get(orderEvt.kitchenReservationId),
                         "Unrecognized Reservation Id: " + orderEvt.kitchenReservationId),
-                (courierId, courierArrivedEvent) -> {
-                    if (null != courierArrivedEvent) {
-                        completeMatchingAndPublish(orderEvt, courierArrivedEvent);
+                (courierId, timedEvent) -> {
+                    if (null != timedEvent) {
+                        long courierWaitTime = timedEvent.stop();
+                        completeMatchingAndPublish(orderEvt, timedEvent.getEvent(), false, courierWaitTime);
                     } else {
-                        ordersPrepared.put(orderEvt.kitchenReservationId, orderEvt);
+                        ordersPrepared.put(orderEvt.kitchenReservationId, new TimedEvent<>(orderEvt));
                     }
                     return null;
                 }
@@ -51,10 +52,12 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
         return false;
     }
 
-    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt) {
+    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt,
+                                                         boolean completedByCourier, long waitTime) {
         reservationToCourierMap.remove(orderEvt.kitchenReservationId);
         courierToReservationMap.remove(courierEvt.courierId);
-        publish(OrderPickedUpEvent.of(KitchenClock.now(), courierEvt,orderEvt.createdAt, orderEvt.kitchenReservationId));
+        long now = KitchenClock.now();
+        publish(OrderPickedUpEvent.of(now, courierEvt, orderEvt, completedByCourier, waitTime));
     }
 
     @Override
@@ -63,11 +66,12 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
             ordersPrepared.compute(
                 Objects.requireNonNull(courierToReservationMap.get(courierEvt.courierId),
                         "Unrecognized Courier Id: " + courierEvt.courierId),
-                (orderId, orderPreparedEvent) -> {
-                    if(null != orderPreparedEvent) {
-                        completeMatchingAndPublish(orderPreparedEvent, courierEvt);
+                (orderId, timedEvent) -> {
+                    if(null != timedEvent) {
+                        long waitTime = timedEvent.stop();
+                        completeMatchingAndPublish(timedEvent.getEvent(), courierEvt, true, waitTime);
                     } else {
-                        couriersArrived.put(courierEvt.courierId, courierEvt);
+                        couriersArrived.put(courierEvt.courierId, new TimedEvent<>(courierEvt));
                     }
                     return null;
                 }
