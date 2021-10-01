@@ -65,8 +65,8 @@ public class StrategyFIFOIntegrationTest {
         DoubleSummaryStatistics foodWaitSimulation = new DoubleSummaryStatistics();
         OrderRequestHandler orderHandler = new OrderRequestHandler();
 
-        for (int i = 0; i < 100; i++) {
-            EtaEstimator estimator = new EtaEstimator(new CourierConfig(3,9));
+        for (int i = 0; i < 10; i++) {
+            EtaEstimator estimator = new EtaEstimator(new CourierConfig(3,15));
             OrderProcessor processor = instrumentOrderSystem(couriers, estimator, orderHandler);
             Iterator<DeliveryOrderRequestDTO> ordersIterator = orders.iterator();
             //when
@@ -81,9 +81,12 @@ public class StrategyFIFOIntegrationTest {
             Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
             Assertions.assertThat(iterationSnapshot.totalOrdersDelivered).isEqualTo(orders.size());
             Assertions.assertThat(iterationSnapshot.totalOrdersReceived).isEqualTo(orders.size());
+            System.out.println(">>>>>>>>>>>>>>>>>>>>>>Iteration Completed<<<<<<<<<<<<<<<<<<<<<<<");
         }
+        System.out.println(foodWaitSimulation);
+        System.out.println(courierWaitSimulation);
         Assertions.assertThat(foodWaitSimulation.getAverage()).isCloseTo(2000, Percentage.withPercentage(5));
-        Assertions.assertThat(foodWaitSimulation.getAverage()).isCloseTo(2000, Percentage.withPercentage(5));
+        Assertions.assertThat(courierWaitSimulation.getAverage()).isCloseTo(2000, Percentage.withPercentage(5));
     }
 
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock, OrderRequestHandler orderHandler) {

@@ -1,9 +1,10 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
 import java.util.Comparator;
+import java.util.stream.Stream;
 
 public enum EventType {
-    NO_PENDING_ORDERS("no pending orders", 0), // the orders queue is empty all workers are waiting
+    NO_PENDING_ORDERS("no pending orders", 6), // the orders queue is empty all workers are waiting
     ORDER_DELIVERED("order delivered", 1),
     ORDER_PICKED_UP("order picked up", 2),
     COURIER_DISPATCHED("courier dispatched", 3),

@@ -35,7 +35,7 @@ public class KitchenServiceImpl implements KitchenService {
         this.mealsUnderPreparation = new LongAdder();
         this.mealDeque = new PriorityBlockingQueue<>();
         //schedule monitoring meal deque
-        scheduler.scheduleAtFixedRate(CompletableTaskMonitor.of(this.mealDeque), 1000L, 500L);
+        //scheduler.scheduleAtFixedRate(CompletableTaskMonitor.of(this.mealDeque), 1000L, 500L);
     }
 
     private boolean reportMealPrepared(OutputEvent outputEvent) {
@@ -48,11 +48,17 @@ public class KitchenServiceImpl implements KitchenService {
         DeliveryOrder order = internalIdToOrder.get(kitchenReservationId);
         if(order != null) {
             mealsUnderPreparation.increment();
-            log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
-            return schedule(kitchenReservationId, order);
+            //log.debug("Kitchen started to prepare meal : {} for order: {}", order.name, order.id);
+            //CompletableFuture<Boolean> schedule = schedule(kitchenReservationId, order);
+            return emulatedPreparation(kitchenReservationId, order);
         }
         String template = "Unable to find the given cookReservationId id[%d]";
         return CompletableFuture.failedFuture(new NoSuchElementException(String.format(template, kitchenReservationId)));
+    }
+
+    private CompletableFuture<Boolean> emulatedPreparation(long id, DeliveryOrder order) {
+        OrderPreparedEvent event = OrderPreparedEvent.of(id, order.id, order.prepTime + KitchenClock.now());
+        return CompletableFuture.completedFuture(reportMealPrepared(event));
     }
 
     private CompletableFuture<Boolean> schedule(long kitchenReservationId, DeliveryOrder order) {
@@ -65,7 +71,7 @@ public class KitchenServiceImpl implements KitchenService {
     public long provideReservationId(DeliveryOrder order) {
         long kitchenReservationId = kitchenReservationIds.getAndIncrement();
         internalIdToOrder.put(kitchenReservationId, order);
-        log.debug("Id requested for meal order: {} given: {}", order.id, kitchenReservationId);
+        //log.debug("Id requested for meal order: {} given: {}", order.id, kitchenReservationId);
         return kitchenReservationId;
     }
 

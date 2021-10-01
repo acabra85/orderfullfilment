@@ -1,5 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
+import com.acabra.orderfullfilment.orderserver.KitchenLog;
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.core.executor.NoMoreOrdersMonitor;
 import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
@@ -27,7 +28,6 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 @Service
-@Slf4j
 public class OrderProcessor implements Closeable, ApplicationContextAware {
     /**
      * This is the main application service, it handles processing of orders
@@ -41,6 +41,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private final SchedulerExecutorAssistant schedulerAssistant;
     private ApplicationContext context;
     private final CompletableFuture<Void> completedHandle = new CompletableFuture<>();
+    private final KitchenLog kLog = KitchenLog.get();
 
     public OrderProcessor(OrderServerConfig orderServerConfig,
                           CourierDispatchService courierService,
@@ -82,19 +83,19 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
         final long reservationId = kitchenService.provideReservationId(order);
-        CompletableFuture<Optional<Integer>> courierDispatch = CompletableFuture
-                .supplyAsync(() -> courierService.dispatchRequest(order, reservationId));
-        return courierDispatch.thenApply(courierId -> {
-            if(courierId.isPresent()) {
-                metricsProcessor.acceptOrderPrepareRequest();
-                kitchenService.prepareMeal(reservationId);
-                return true;
-            } else {
-                log.info("No couriers available to deliver the order ... cancelling cooking reservation");
-                kitchenService.cancelCookReservation(reservationId);
-                return false;
-            }
-        });
+        String orderReceivedMsg = String.format("[EVENT] orderId[%s] received: prepTime:[%s]ms name:%s", reservationId,
+                orderReceived.order.prepTime, orderReceived.order.name);
+        kLog.append(orderReceived.createdAt, orderReceivedMsg);
+        Optional<Integer> courierDispatched = courierService.dispatchRequest(order, reservationId);
+        if(courierDispatched.isPresent()) {
+            metricsProcessor.acceptOrderPrepareRequest();
+            kitchenService.prepareMeal(reservationId);
+            return CompletableFuture.completedFuture(true);
+        } else {
+            kLog.append("No couriers available to deliver the order ... cancelling cooking reservation");
+            kitchenService.cancelCookReservation(reservationId);
+            return CompletableFuture.completedFuture(false);
+        }
     }
 
     private void dispatchOutputEvent(final OutputEvent outputEvent) {
@@ -102,46 +103,46 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
             case ORDER_RECEIVED:
                 metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
-                log.info("[EVENT] order received : {} prepTime:{} name:{} at: {}" , orderReceivedEvent.order.id,
-                        orderReceivedEvent.order.prepTime, orderReceivedEvent.order.name,
-                        KitchenClock.formatted(orderReceivedEvent.createdAt));
                 processOrder(orderReceivedEvent).join();
                 break;
             case COURIER_DISPATCHED:
                 CourierDispatchedEvent courierDispatchedEvent = (CourierDispatchedEvent) outputEvent;
-                log.info("[EVENT] courier dispatched: id[{}] estimated travel time [{}]ms",
+                String dispatchedMsg = String.format("[EVENT] courier dispatched: id[%s] estimated travel time [%s]ms",
                         courierDispatchedEvent.courierId, courierDispatchedEvent.estimatedTravelTime);
+                kLog.append(outputEvent.createdAt, dispatchedMsg);
                 courierService.processCourierDispatchedEvent(courierDispatchedEvent);
                 break;
             case ORDER_PREPARED:
                 OrderPreparedEvent orderPreparedEvent = (OrderPreparedEvent) outputEvent;
-                log.info("[EVENT] order prepared: mealId[{}], orderId[{}] at {}", orderPreparedEvent.kitchenReservationId,
-                    orderPreparedEvent.deliveryOrderId, KitchenClock.formatted(orderPreparedEvent.createdAt));
+                String preparedMsg = String.format("[EVENT] order prepared: mealId[%s], orderId[%s]",
+                        orderPreparedEvent.kitchenReservationId, orderPreparedEvent.deliveryOrderId);
+                kLog.append(outputEvent.createdAt, preparedMsg);
                 courierService.processOrderPrepared(orderPreparedEvent);
                 break;
             case COURIER_ARRIVED:
                 CourierArrivedEvent courierArrivedEvent = (CourierArrivedEvent) outputEvent;
-                log.info("[EVENT] courier arrived id[{}], for pickup at {}ms", courierArrivedEvent.courierId,
-                        KitchenClock.formatted(courierArrivedEvent.createdAt));
+                String arrivedMsg = String.format("[EVENT] courier arrived id[%s], for pickup",
+                        courierArrivedEvent.courierId);
+                kLog.append(outputEvent.createdAt, arrivedMsg);
                 courierService.processCourierArrived(courierArrivedEvent);
                 break;
             case ORDER_PICKED_UP:
                 OrderPickedUpEvent orderPickedUpEvent = (OrderPickedUpEvent) outputEvent;
-                log.info("[EVENT] order picked up: orderId[{}] courierId[{}] at {}",
-                        orderPickedUpEvent.mealOrderId, orderPickedUpEvent.courierId,
-                        KitchenClock.formatted(orderPickedUpEvent.createdAt));
+                String pickedUpMsg = String.format("[EVENT] order picked up: orderId[%s] courierId[%s]",
+                        orderPickedUpEvent.mealOrderId, orderPickedUpEvent.courierId);
+                kLog.append(outputEvent.createdAt, pickedUpMsg);
                 reportPickupMetrics(orderPickedUpEvent);
                 processOrderPickedUp(orderPickedUpEvent);
                 break;
             case ORDER_DELIVERED:
                 OrderDeliveredEvent orderDeliveredEvent = (OrderDeliveredEvent) outputEvent;
-                log.info("[EVENT] order delivered: orderId[{}] by courierId[{}] at {}",
-                        orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId,
-                        KitchenClock.formatted(orderDeliveredEvent.createdAt));
+                String deliveredMsg = String.format("[EVENT] order delivered: orderId[%s] by courierId[%s]",
+                        orderDeliveredEvent.mealOrderId, orderDeliveredEvent.courierId);
+                kLog.append(outputEvent.createdAt, deliveredMsg);
                 courierService.processOrderDelivered(orderDeliveredEvent);
                 break;
             case NO_PENDING_ORDERS:
-                reportAverageMetrics();
+                reportAverageMetrics(outputEvent);
                 this.close();
                 break;
             default:
@@ -157,21 +158,24 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
     private void reportPickupMetrics(OrderPickedUpEvent orderPickedUpEvent) {
         this.metricsProcessor.acceptFoodWaitTime(orderPickedUpEvent.foodWaitTime);
         this.metricsProcessor.acceptCourierWaitTime(orderPickedUpEvent.courierWaitTime);
-        log.info("[METRICS] Food wait time: {}ms - Courier wait time {}ms, orderId [{}]", orderPickedUpEvent.foodWaitTime,
-                orderPickedUpEvent.courierWaitTime, orderPickedUpEvent.mealOrderId);
+        String message = String.format("[METRICS] Food wait time: [%s]ms - Courier wait time [%s]ms, orderId[%s]",
+                orderPickedUpEvent.foodWaitTime, orderPickedUpEvent.courierWaitTime, orderPickedUpEvent.mealOrderId);
+        kLog.append(orderPickedUpEvent.createdAt, message);
     }
 
-    private void reportAverageMetrics() {
+    private void reportAverageMetrics(OutputEvent outputEvent) {
         MetricsProcessor.DeliveryMetricsSnapshot snapshot = this.metricsProcessor.snapshot();
-        log.info(String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms, " +
-                        "Total Orders Received {}, Total Orders Delivered {}", snapshot.avgFoodWaitTime,
-                snapshot.avgCourierWaitTime), snapshot.totalOrdersReceived, snapshot.totalOrdersDelivered);
+        String message = String.format("[METRICS] Avg. Food Wait Time: [%.4f]ms, Avg Courier Wait Time [%.4f]ms, " +
+                        "Total Orders Received %s, Total Orders Delivered %s", snapshot.avgFoodWaitTime,
+                snapshot.avgCourierWaitTime, snapshot.totalOrdersReceived, snapshot.totalOrdersDelivered);
+        kLog.append(outputEvent.createdAt, message);
     }
 
     @Override
     public void close() {
         if (!this.schedulerAssistant.isOrdersMonitorTerminated()) {
-            log.info("[SYSTEM] queue processing shutting down, no orders remaining");
+            kLog.append("[SYSTEM] queue processing shutting down, no orders remaining");
+            kLog.printLog();
             this.schedulerAssistant.shutdown();
             this.courierService.shutdown();
             this.kitchenService.shutdown();

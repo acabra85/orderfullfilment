@@ -45,7 +45,7 @@ public class CourierFleetImpl implements CourierFleet {
         this.etaEstimator = etaEstimator;
         this.scheduleDeque = new PriorityBlockingQueue<>();
         //schedule monitoring courier schedule deque
-        executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500L, 350L);
+        //executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500L, 350L);
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
@@ -64,8 +64,13 @@ public class CourierFleetImpl implements CourierFleet {
         courier.dispatch();
         dispatchedCouriers.put(courier.id, courier);
         long etaInMillis = etaEstimator.estimateCourierTravelTimeInSeconds(courier) * 1000L;
-        CompletableFuture<Boolean> schedule = schedule(etaInMillis, courier.id);
-        return DispatchResult.of(courier.id, schedule, etaInMillis);
+        //CompletableFuture<Boolean> schedule = schedule(etaInMillis, courier.id);
+        CompletableFuture<Boolean> emulated = emulateDispatched(courier.id, etaInMillis, KitchenClock.now() + etaInMillis);
+        return DispatchResult.of(courier.id, emulated, etaInMillis);
+    }
+
+    private CompletableFuture<Boolean> emulateDispatched(int courierId, long eta, long now) {
+        return CompletableFuture.completedFuture(reportCourierArrived(CourierArrivedEvent.of(courierId, eta, now)));
     }
 
     private Courier getAvailableCourier() {
@@ -87,7 +92,7 @@ public class CourierFleetImpl implements CourierFleet {
         courier.orderDelivered();
         this.dispatchedCouriers.remove(courierId);
         this.availableCouriers.offer(courier);
-        log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
+        //log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
     }
 
     private CompletableFuture<Boolean> schedule(long timeToDestMillis, int courierId) {

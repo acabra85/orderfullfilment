@@ -37,8 +37,9 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
                         "Unrecognized Reservation Id: " + orderEvt.kitchenReservationId),
                 (courierId, timedEvent) -> {
                     if (null != timedEvent) {
-                        long courierWaitTime = timedEvent.stop();
-                        completeMatchingAndPublish(orderEvt, timedEvent.getEvent(), false, courierWaitTime);
+                        //long waitTime = timedEvent.stop();
+                        long waitTime = orderEvt.createdAt - timedEvent.getEvent().createdAt;
+                        completeMatchingAndPublish(orderEvt, timedEvent.getEvent(), false, waitTime);
                     } else {
                         ordersPrepared.put(orderEvt.kitchenReservationId, new TimedEvent<>(orderEvt));
                     }
@@ -68,7 +69,8 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
                         "Unrecognized Courier Id: " + courierEvt.courierId),
                 (orderId, timedEvent) -> {
                     if(null != timedEvent) {
-                        long waitTime = timedEvent.stop();
+                        //long waitTime = timedEvent.stop();
+                        long waitTime = courierEvt.createdAt - timedEvent.getEvent().createdAt;
                         completeMatchingAndPublish(timedEvent.getEvent(), courierEvt, true, waitTime);
                     } else {
                         couriersArrived.put(courierEvt.courierId, new TimedEvent<>(courierEvt));

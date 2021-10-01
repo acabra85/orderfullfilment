@@ -44,10 +44,11 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     @Override
     public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderPreparedEvent) {
         try {
-            TimedEvent<CourierArrivedEvent> courierEvt = couriersArrived.poll();
-            if (null != courierEvt) {
-                long waitTime = courierEvt.stop();
-                publishedOrderPickedUpEvent(courierEvt.getEvent(), orderPreparedEvent, false, waitTime);
+            TimedEvent<CourierArrivedEvent> timedEvent = couriersArrived.poll();
+            if (null != timedEvent) {
+                //long waitTime = timedEvent.stop();
+                long waitTime = orderPreparedEvent.createdAt - timedEvent.getEvent().createdAt;
+                publishedOrderPickedUpEvent(timedEvent.getEvent(), orderPreparedEvent, false, waitTime);
             } else {
                 mealsPrepared.offer(new TimedEvent<>(orderPreparedEvent));
             }
@@ -63,7 +64,8 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
         try {
             TimedEvent<OrderPreparedEvent> timedEvent = mealsPrepared.poll();
             if (null != timedEvent) {
-                long waitTime = timedEvent.stop();
+                //long waitTime = timedEvent.stop();
+                long waitTime = courierEvt.createdAt - timedEvent.getEvent().createdAt;
                 publishedOrderPickedUpEvent(courierEvt, timedEvent.getEvent(), true, waitTime);
             } else {
                 couriersArrived.offer(new TimedEvent<>(courierEvt));
