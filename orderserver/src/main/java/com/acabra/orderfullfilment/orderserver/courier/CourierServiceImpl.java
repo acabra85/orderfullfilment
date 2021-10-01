@@ -3,14 +3,12 @@ package com.acabra.orderfullfilment.orderserver.courier;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcher;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.*;
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Deque;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,11 +29,11 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public Optional<Integer> dispatchRequest(DeliveryOrder order, long kitchenReservationId) {
-        DispatchResult dispatchResult = this.courierFleet.dispatch(order);
+    public Optional<Integer> dispatchRequest(DeliveryOrder order, long kitchenReservationId, long now) {
+        DispatchResult dispatchResult = this.courierFleet.dispatch(order, now);
         Integer courierId = dispatchResult.courierId;
         if(null != courierId) {
-            OutputEvent event = CourierDispatchedEvent.of(KitchenClock.now(), order, courierId, kitchenReservationId,
+            OutputEvent event = CourierDispatchedEvent.of(now, order, courierId, kitchenReservationId,
                     dispatchResult.ettMillis);
             publish(event);
             return Optional.of(courierId);

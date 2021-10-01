@@ -1,24 +1,22 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.core.CompletableTask;
-import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-import com.acabra.orderfullfilment.orderserver.order.CompletableTaskMonitor;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -34,18 +32,14 @@ public class CourierFleetImpl implements CourierFleet {
     private final AtomicInteger totalCouriers;
     private final AtomicReference<Queue<OutputEvent>> pubDeque;
     private final EtaEstimator etaEstimator;
-    private final PriorityBlockingQueue<CompletableTask> scheduleDeque;
 
-    public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator, SchedulerExecutorAssistant executor) {
+    public CourierFleetImpl(List<Courier> couriers, EtaEstimator etaEstimator) {
         this.availableCouriers = new ConcurrentLinkedDeque<>(couriers.stream()
                 .filter(Courier::isAvailable).collect(DEQUE_COLLECTOR));
         this.dispatchedCouriers = buildDispatchedMap(couriers);
         this.totalCouriers = new AtomicInteger(couriers.size());
         this.pubDeque = new AtomicReference<>();
         this.etaEstimator = etaEstimator;
-        this.scheduleDeque = new PriorityBlockingQueue<>();
-        //schedule monitoring courier schedule deque
-        //executor.scheduleAtFixedRate(CompletableTaskMonitor.of(this.scheduleDeque), 1500L, 350L);
     }
 
     private Map<Integer, Courier> buildDispatchedMap(List<Courier> couriers) {
@@ -59,18 +53,18 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public DispatchResult dispatch(DeliveryOrder order) {
+    public DispatchResult dispatch(DeliveryOrder order, long now) {
         Courier courier = getAvailableCourier();
         courier.dispatch();
         dispatchedCouriers.put(courier.id, courier);
-        long etaInMillis = etaEstimator.estimateCourierTravelTimeInSeconds(courier) * 1000L;
-        //CompletableFuture<Boolean> schedule = schedule(etaInMillis, courier.id);
-        CompletableFuture<Boolean> emulated = emulateDispatched(courier.id, etaInMillis, KitchenClock.now() + etaInMillis);
-        return DispatchResult.of(courier.id, emulated, etaInMillis);
+        long ettMillis = etaEstimator.estimateCourierTravelTimeInSeconds(courier) * 1000L;
+        CompletableFuture<Boolean> emulated = emulateDispatched(courier.id, ettMillis, now + ettMillis);
+        return DispatchResult.of(courier.id, emulated, ettMillis);
     }
 
-    private CompletableFuture<Boolean> emulateDispatched(int courierId, long eta, long now) {
-        return CompletableFuture.completedFuture(reportCourierArrived(CourierArrivedEvent.of(courierId, eta, now)));
+    private CompletableFuture<Boolean> emulateDispatched(int courierId, long ett, long now) {
+        return CompletableFuture.supplyAsync(() -> reportCourierArrived(CourierArrivedEvent.of(courierId, ett, now)),
+                CompletableFuture.delayedExecutor(10L, TimeUnit.MILLISECONDS));
     }
 
     private Courier getAvailableCourier() {
@@ -92,14 +86,6 @@ public class CourierFleetImpl implements CourierFleet {
         courier.orderDelivered();
         this.dispatchedCouriers.remove(courierId);
         this.availableCouriers.offer(courier);
-        //log.debug("Courier[{},{}] is available ... remaining available couriers: {} ", courierId, courier.name, this.availableCouriers.size());
-    }
-
-    private CompletableFuture<Boolean> schedule(long timeToDestMillis, int courierId) {
-        CompletableTask scheduledArrival = buildCompletableTask(courierId, timeToDestMillis,
-                this::reportCourierArrived);
-        scheduleDeque.offer(scheduledArrival);
-        return scheduledArrival.getCompletionFuture();
     }
 
     private boolean reportCourierArrived(OutputEvent outputEvent) {
@@ -131,27 +117,4 @@ public class CourierFleetImpl implements CourierFleet {
         return log;
     }
 
-    private CompletableTask buildCompletableTask(int courierId, long etaMillis, Function<OutputEvent, Boolean> report) {
-        return new CompletableTask() {
-            public final long arrivalAt = KitchenClock.now() + etaMillis;
-            public final CompletableFuture<Boolean> completedFuture = new CompletableFuture<>();
-
-            @Override
-            public long expectedCompletionAt() {
-                return arrivalAt;
-            }
-
-            @Override
-            public void accept(Long now) {
-                CourierArrivedEvent evt = CourierArrivedEvent.of(courierId, arrivalAt, now);
-                //log.info("courierId[{}] delayed: {}ms", (now - arrivalAt), evt.courierId);
-                this.completedFuture.complete(report.apply(evt));
-            }
-
-            @Override
-            public CompletableFuture<Boolean> getCompletionFuture() {
-                return this.completedFuture;
-            }
-        };
-    }
 }

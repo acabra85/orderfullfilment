@@ -35,7 +35,7 @@ public class UtilsIntegrationTest {
         return resourceLoader.getResource(resourceAsStr).getInputStream();
     }
 
-    static ScheduledExecutorService submitTheOrdersAtARateOf2PerSecond(OrderRequestHandler orderHandler,
+    static ScheduledExecutorService submitTheOrdersAtARateOf10PerSecond(OrderRequestHandler orderHandler,
                                                                         Iterator<DeliveryOrderRequestDTO> ordersIterator) {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
         executorService.scheduleAtFixedRate(() -> {
@@ -44,14 +44,7 @@ public class UtilsIntegrationTest {
             } else {
                 orderHandler.accept(ordersIterator.next());
             }
-        },0, 500L, TimeUnit.MILLISECONDS);
+        },0, 100L, TimeUnit.MILLISECONDS);
         return executorService;
-    }
-
-    static EtaEstimator buildPredictableEstimatorMock(ArrayList<Courier> couriers, HashMap<String, Integer> travelTimesSeconds) {
-        EtaEstimator estimatorMock = Mockito.mock(EtaEstimator.class);
-        couriers.forEach(courier -> Mockito.when(estimatorMock.estimateCourierTravelTimeInSeconds(courier))
-                .thenAnswer(invocation -> travelTimesSeconds.get(((Courier) invocation.getArgument(0)).name)));
-        return estimatorMock;
     }
 }

@@ -35,13 +35,13 @@
                 <version>${maven.surefire.plugin.version}</version>
                 <configuration>
                     <argLine>@{argLine} ${surefireArgLine}</argLine>
-                    <skipTests>${skip.unit.tests}</skipTests>
                     <threadCount>6</threadCount>
                     <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
-                    <excludes>
-                        <exclude>**/*IntegrationTest.java</exclude>
-                    </excludes>
+                    <includes>
+                        <include>**/*Test.class</include>
+                    </includes>
+                    <excludedGroups>integration-tests</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>
@@ -57,9 +57,9 @@
                         </goals>
                         <configuration>
                             <includes>
-                                <include>**/*IntegrationTest.java</include>
+                                <include>**/*IntegrationTest.class</include>
                             </includes>
-                            <skipTests>${skip.integration.tests}</skipTests>
+                            <groups>integration-tests</groups>
                         </configuration>
                     </execution>
                 </executions>

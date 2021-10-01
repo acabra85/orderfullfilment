@@ -45,7 +45,6 @@ public class Courier {
             throw new IllegalStateException("Courier is already available");
         }
         this.available = true;
-        //log.debug("Courier {} is now available", id);
     }
 
     public boolean isAvailable() {

@@ -21,7 +21,7 @@ public class SchedulerExecutorAssistant {
 
     public SchedulerExecutorAssistant(OrderServerConfig config) {
         log.info("[SYSTEM] starting the scheduler with [{}] concurrent threads", config.getThreadCount());
-        this.concurrentExecutor = Executors.newFixedThreadPool(16);
+        this.concurrentExecutor = Executors.newFixedThreadPool(config.getThreadCount());
         this.scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 

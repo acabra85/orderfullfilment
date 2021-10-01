@@ -3,7 +3,6 @@ package com.acabra.orderfullfilment.orderserver.courier;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherFIFOImpl;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcher;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
-import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderDeliveredEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
@@ -30,6 +29,7 @@ class CourierServiceImplTest {
     private CourierFleet fleetMock;
     private OrderCourierMatcher orderCourierMatcherMock;
     private Deque<OutputEvent> mockDeque;
+    private final long NOW = 1000000000L;
 
     @BeforeEach
     public void setup() {
@@ -52,13 +52,13 @@ class CourierServiceImplTest {
     void mustReturnEmptyNoCouriers() {
         //given
         long reservationId = 0L;
-        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.notDispatched());
+        Mockito.when(fleetMock.dispatch(null, NOW)).thenReturn(DispatchResult.notDispatched());
 
         //when
-        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId);
+        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId, NOW);
 
         //then
-        Mockito.verify(fleetMock).dispatch(null);
+        Mockito.verify(fleetMock).dispatch(null, NOW);
         Assertions.assertThat(actual.isEmpty()).isTrue();
     }
 
@@ -66,13 +66,13 @@ class CourierServiceImplTest {
     void mustReturnCourierIdAvailableCourier() {
         //given
         long reservationId = 0L;
-        Mockito.when(fleetMock.dispatch(null)).thenReturn(DispatchResult.ofCompleted(5, 1));
+        Mockito.when(fleetMock.dispatch(null, NOW)).thenReturn(DispatchResult.ofCompleted(5, 1));
 
         //when
-        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId);
+        Optional<Integer> actual = underTest.dispatchRequest(null, reservationId, NOW);
 
         //then
-        Mockito.verify(fleetMock).dispatch(null);
+        Mockito.verify(fleetMock).dispatch(null, NOW);
         Assertions.assertThat(actual.isPresent()).isTrue();
         Assertions.assertThat(actual.get()).isEqualTo(5);
     }

@@ -12,9 +12,10 @@ public interface CourierDispatchService extends OutputEventPublisher {
      * @param order the order that initiated the dispatch (please not the dispatched courier might not necessarily
      *              pick up that order.
      * @param reservationId the prepare reservation id given by the kitchen
+     * @param now current time
      * @return an optional value with the dispatched courierId or empty if no couriers are available
      */
-    Optional<Integer> dispatchRequest(DeliveryOrder order, long reservationId);
+    Optional<Integer> dispatchRequest(DeliveryOrder order, long reservationId, long now);
 
     /**
      * According to the strategy defined allows the order to be picked up by an awaiting courier or else to await

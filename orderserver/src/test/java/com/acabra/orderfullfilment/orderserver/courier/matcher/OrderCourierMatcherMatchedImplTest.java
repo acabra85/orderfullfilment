@@ -6,6 +6,7 @@ import com.acabra.orderfullfilment.orderserver.TestUtils;
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -119,7 +120,6 @@ class OrderCourierMatcherMatchedImplTest {
         //then
         Assertions.assertThat(actual).isFalse();
     }
-
 
     @Test
     void registerNotificationDeque() {

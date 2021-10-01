@@ -18,7 +18,9 @@ public abstract class OutputEvent implements Comparable<OutputEvent> {
 
     @Override
     public int compareTo(OutputEvent o) {
-        int compare = EVENT_TYPE_COMPARATOR.compare(type, o.type);
-        return 0 != compare ? compare : Long.compare(createdAt, o.createdAt);
+        return Long.compare(createdAt, o.createdAt);
+
+        //int compare = EVENT_TYPE_COMPARATOR.compare(type, o.type);
+        //return 0 != compare ? compare : Long.compare(createdAt, o.createdAt);
     }
 }

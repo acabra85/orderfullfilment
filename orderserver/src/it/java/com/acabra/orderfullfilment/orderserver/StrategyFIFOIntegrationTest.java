@@ -13,17 +13,20 @@ import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatch
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherFIFOImpl;
 import com.acabra.orderfullfilment.orderserver.courier.model.Courier;
 import com.acabra.orderfullfilment.orderserver.dto.DeliveryOrderRequestDTO;
-import com.acabra.orderfullfilment.orderserver.event.EventType;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.data.Offset;
-import org.assertj.core.data.Percentage;
+import org.junit.experimental.categories.Categories;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.test.context.ContextConfiguration;
@@ -31,17 +34,20 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {OrderServerConfig.class, CourierConfig.class})
 @TestPropertySource("classpath:application-integ.properties")
+@Tag("integration-tests")
 public class StrategyFIFOIntegrationTest {
 
     @Autowired
@@ -50,52 +56,82 @@ public class StrategyFIFOIntegrationTest {
     @Autowired
     private ResourceLoader resourceLoader;
 
+    //we want to control exactly how long the travel time to the kitchen will take for every courier
+    private EtaEstimator estimatorMock;
+
+    @BeforeEach
+    public void setup() {
+        estimatorMock = Mockito.mock(EtaEstimator.class);
+    }
     /**
      * In this test all the orders are cooked before the drivers arrived,
-     *
      */
     @Test
-    public void mustAssignOrdersFirstComeFirstServe() throws IOException {
+    public void mustAssignOrdersFirstComeFirstServe_givenCouriersTakeLongToDeliver() throws IOException {
         // given
         ArrayList<Courier> couriers = readCouriersFromFileTestFile(resourceLoader, "classpath:it-test-couriers.json");
         List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile(resourceLoader, "classpath:it-test-orders.json");
-
-        //we want to control exactly how long the travel time to the kitchen will take for every courier
-        DoubleSummaryStatistics courierWaitSimulation = new DoubleSummaryStatistics();
-        DoubleSummaryStatistics foodWaitSimulation = new DoubleSummaryStatistics();
         OrderRequestHandler orderHandler = new OrderRequestHandler();
 
-        for (int i = 0; i < 10; i++) {
-            EtaEstimator estimator = new EtaEstimator(new CourierConfig(3,15));
-            OrderProcessor processor = instrumentOrderSystem(couriers, estimator, orderHandler);
-            Iterator<DeliveryOrderRequestDTO> ordersIterator = orders.iterator();
-            //when
-            ScheduledExecutorService scheduledExecutorService =
-                    submitTheOrdersAtARateOf2PerSecond(orderHandler, ordersIterator);
-            processor.getCompletedHandle().join();
-            MetricsProcessor.DeliveryMetricsSnapshot iterationSnapshot = processor.getMetricsSnapshot();
-            courierWaitSimulation.accept(iterationSnapshot.avgCourierWaitTime);
-            foodWaitSimulation.accept(iterationSnapshot.avgFoodWaitTime);
+        AtomicInteger ai = new AtomicInteger();
+        Mockito.doAnswer(e -> (ai.getAndIncrement() % 3) + 9).when(estimatorMock)
+                .estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
 
-            //then
-            Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
-            Assertions.assertThat(iterationSnapshot.totalOrdersDelivered).isEqualTo(orders.size());
-            Assertions.assertThat(iterationSnapshot.totalOrdersReceived).isEqualTo(orders.size());
-            System.out.println(">>>>>>>>>>>>>>>>>>>>>>Iteration Completed<<<<<<<<<<<<<<<<<<<<<<<");
-        }
-        System.out.println(foodWaitSimulation);
-        System.out.println(courierWaitSimulation);
-        Assertions.assertThat(foodWaitSimulation.getAverage()).isCloseTo(2000, Percentage.withPercentage(5));
-        Assertions.assertThat(courierWaitSimulation.getAverage()).isCloseTo(2000, Percentage.withPercentage(5));
+        OrderProcessor processor = instrumentOrderSystem(couriers, estimatorMock, orderHandler);
+        Iterator<DeliveryOrderRequestDTO> ordersIterator = orders.iterator();
+        //when
+        ScheduledExecutorService scheduledExecutorService =
+                submitTheOrdersAtARateOf10PerSecond(orderHandler, ordersIterator);
+        processor.getCompletedHandle().join();
+        MetricsProcessor.DeliveryMetricsSnapshot iterationSnapshot = processor.getMetricsSnapshot();
+
+        //then
+        Mockito.verify(estimatorMock, Mockito.times(orders.size()))
+                .estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
+        Assertions.assertThat(iterationSnapshot.totalOrdersDelivered).isEqualTo(orders.size());
+        Assertions.assertThat(iterationSnapshot.totalOrdersReceived).isEqualTo(orders.size());
+        Assertions.assertThat(iterationSnapshot.avgCourierWaitTime).isCloseTo(0, Offset.offset(0.0));
+        Assertions.assertThat(iterationSnapshot.avgFoodWaitTime).isCloseTo(6400, Offset.offset(0.0));
+    }
+
+    @Test
+    public void mustAssignOrdersFirstComeFirstServe_givenCouriersTakeShortToDeliver() throws IOException {
+        // given
+        ArrayList<Courier> couriers = readCouriersFromFileTestFile(resourceLoader, "classpath:it-test-couriers.json");
+        List<DeliveryOrderRequestDTO> orders = readOrdersFromTestFile(resourceLoader, "classpath:it-test-orders.json");
+        OrderRequestHandler orderHandler = new OrderRequestHandler();
+//        EtaEstimator estimator = new EtaEstimator(new CourierConfig(3, 15));
+        AtomicInteger ai = new AtomicInteger();
+        Mockito.doAnswer(e -> (ai.getAndIncrement() % 2))
+                .when(estimatorMock)
+                .estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+
+        OrderProcessor processor = instrumentOrderSystem(couriers, estimatorMock, orderHandler);
+        Iterator<DeliveryOrderRequestDTO> ordersIterator = orders.iterator();
+        //when
+        ScheduledExecutorService scheduledExecutorService =
+                submitTheOrdersAtARateOf10PerSecond(orderHandler, ordersIterator);
+        processor.getCompletedHandle().join();
+        MetricsProcessor.DeliveryMetricsSnapshot iterationSnapshot = processor.getMetricsSnapshot();
+
+        //then
+        Mockito.verify(estimatorMock, Mockito.times(orders.size()))
+                .estimateCourierTravelTimeInSeconds(Mockito.any(Courier.class));
+        Assertions.assertThat(scheduledExecutorService.isTerminated()).isTrue();
+        Assertions.assertThat(iterationSnapshot.totalOrdersDelivered).isEqualTo(orders.size());
+        Assertions.assertThat(iterationSnapshot.totalOrdersReceived).isEqualTo(orders.size());
+        Assertions.assertThat(iterationSnapshot.avgCourierWaitTime).isCloseTo(3080, Offset.offset(0.0));
+        Assertions.assertThat(iterationSnapshot.avgFoodWaitTime).isCloseTo(0, Offset.offset(0.0));
     }
 
     private OrderProcessor instrumentOrderSystem(ArrayList<Courier> couriers, EtaEstimator estimatorMock, OrderRequestHandler orderHandler) {
         Queue<OutputEvent> deque = new PriorityBlockingQueue<>();
         SchedulerExecutorAssistant scheduler = new SchedulerExecutorAssistant(this.serverConfig);
-        CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock, scheduler);
+        CourierFleetImpl courierFleet = new CourierFleetImpl(couriers, estimatorMock);
         OrderCourierMatcher orderCourierMatcher = new OrderCourierMatcherFIFOImpl();
         CourierDispatchService courierService = new CourierServiceImpl(courierFleet, orderCourierMatcher);
-        KitchenService kitchen = new KitchenServiceImpl(scheduler);
+        KitchenService kitchen = new KitchenServiceImpl();
         return new OrderProcessor(serverConfig, courierService, kitchen, orderHandler, deque, scheduler);
     }
 }

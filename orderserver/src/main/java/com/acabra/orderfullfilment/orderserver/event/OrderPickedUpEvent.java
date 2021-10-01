@@ -21,4 +21,14 @@ public class OrderPickedUpEvent extends OutputEvent {
         return new OrderPickedUpEvent(now, courierWaitTime, foodWaitTime, courierEvt.courierId,
                 orderEvt.kitchenReservationId);
     }
+
+    public static OutputEvent of(CourierArrivedEvent courierEvt, OrderPreparedEvent orderEvt) {
+        long diffTime = courierEvt.createdAt - orderEvt.createdAt;
+        if(diffTime > 0) {
+            return new OrderPickedUpEvent(courierEvt.createdAt, 0, diffTime, courierEvt.courierId,
+                    orderEvt.kitchenReservationId);
+        }
+        return new OrderPickedUpEvent(orderEvt.createdAt, Math.abs(diffTime), 0, courierEvt.courierId,
+                orderEvt.kitchenReservationId);
+    }
 }

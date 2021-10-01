@@ -1,16 +1,15 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
 import java.util.Comparator;
-import java.util.stream.Stream;
 
 public enum EventType {
-    NO_PENDING_ORDERS("no pending orders", 6), // the orders queue is empty all workers are waiting
     ORDER_DELIVERED("order delivered", 1),
     ORDER_PICKED_UP("order picked up", 2),
     COURIER_DISPATCHED("courier dispatched", 3),
     COURIER_ARRIVED("courier arrived", Constants.SHARED_PRIORITY),
     ORDER_PREPARED("order prepared", Constants.SHARED_PRIORITY),
-    ORDER_RECEIVED("order received", 5);
+    ORDER_RECEIVED("order received", 5),
+    NO_PENDING_ORDERS("no pending orders", 6); // the orders queue is empty all workers are waiting
 
     private static final Comparator<EventType> COMP = Comparator.comparing(a -> a.priority);
     public final String message;

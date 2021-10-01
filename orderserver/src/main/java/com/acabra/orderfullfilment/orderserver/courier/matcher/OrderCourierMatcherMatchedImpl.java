@@ -1,7 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.courier.matcher;
 
 import com.acabra.orderfullfilment.orderserver.event.*;
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -20,8 +19,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
 
     private final AtomicReference<Queue<OutputEvent>> pubDeque = new AtomicReference<>();
-    private final Map<Long, TimedEvent<OrderPreparedEvent>> ordersPrepared = new ConcurrentHashMap<>();
-    private final Map<Integer, TimedEvent<CourierArrivedEvent>> couriersArrived = new ConcurrentHashMap<>();
+    private final Map<Long, OrderPreparedEvent> ordersPrepared = new ConcurrentHashMap<>();
+    private final Map<Integer, CourierArrivedEvent> couriersArrived = new ConcurrentHashMap<>();
     private final Map<Integer, Long> courierToReservationMap = new ConcurrentHashMap<>();
     private final Map<Long, Integer> reservationToCourierMap = new ConcurrentHashMap<>();
 
@@ -30,59 +29,53 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     }
 
     @Override
-    public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderEvt) {
+    public boolean acceptOrderPreparedEvent(final OrderPreparedEvent orderEvt) {
         try {
             couriersArrived.compute(
                 Objects.requireNonNull(reservationToCourierMap.get(orderEvt.kitchenReservationId),
                         "Unrecognized Reservation Id: " + orderEvt.kitchenReservationId),
-                (courierId, timedEvent) -> {
-                    if (null != timedEvent) {
-                        //long waitTime = timedEvent.stop();
-                        long waitTime = orderEvt.createdAt - timedEvent.getEvent().createdAt;
-                        completeMatchingAndPublish(orderEvt, timedEvent.getEvent(), false, waitTime);
+                (courierId, courierEvt) -> {
+                    if (null != courierEvt) {
+                        completeMatchingAndPublish(orderEvt, courierEvt);
                     } else {
-                        ordersPrepared.put(orderEvt.kitchenReservationId, new TimedEvent<>(orderEvt));
+                        ordersPrepared.put(orderEvt.kitchenReservationId, orderEvt);
                     }
                     return null;
                 }
             );
             return true;
         } catch (Exception e) {
-            log.error("[<<ERROR>>] Unable to accept the current event {}", e.getMessage());
+            log.error("[ERROR] Unable to accept the current event {}", e.getMessage(), e);
         }
         return false;
     }
 
-    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt,
-                                                         boolean completedByCourier, long waitTime) {
-        reservationToCourierMap.remove(orderEvt.kitchenReservationId);
-        courierToReservationMap.remove(courierEvt.courierId);
-        long now = KitchenClock.now();
-        publish(OrderPickedUpEvent.of(now, courierEvt, orderEvt, completedByCourier, waitTime));
-    }
-
     @Override
-    public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierEvt) {
+    public boolean acceptCourierArrivedEvent(final CourierArrivedEvent courierEvt) {
         try {
             ordersPrepared.compute(
                 Objects.requireNonNull(courierToReservationMap.get(courierEvt.courierId),
                         "Unrecognized Courier Id: " + courierEvt.courierId),
-                (orderId, timedEvent) -> {
-                    if(null != timedEvent) {
-                        //long waitTime = timedEvent.stop();
-                        long waitTime = courierEvt.createdAt - timedEvent.getEvent().createdAt;
-                        completeMatchingAndPublish(timedEvent.getEvent(), courierEvt, true, waitTime);
+                (orderId, orderEvt) -> {
+                    if(null != orderEvt) {
+                        completeMatchingAndPublish(orderEvt, courierEvt);
                     } else {
-                        couriersArrived.put(courierEvt.courierId, new TimedEvent<>(courierEvt));
+                        couriersArrived.put(courierEvt.courierId, courierEvt);
                     }
                     return null;
                 }
             );
             return true;
         } catch (Exception e) {
-            log.error("Unable to accept the current event {}", e.getMessage());
+            log.error("Unable to accept the current event {}", e.getMessage(), e);
         }
         return false;
+    }
+
+    synchronized private void completeMatchingAndPublish(OrderPreparedEvent orderEvt, CourierArrivedEvent courierEvt) {
+        reservationToCourierMap.remove(orderEvt.kitchenReservationId);
+        courierToReservationMap.remove(courierEvt.courierId);
+        publish(OrderPickedUpEvent.of(courierEvt, orderEvt));
     }
 
     @Override

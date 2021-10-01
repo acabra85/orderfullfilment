@@ -80,21 +80,21 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered > 0;
     }
 
-    private CompletableFuture<Boolean> processOrder(final OrderReceivedEvent orderReceived) {
+    private boolean processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
         final long reservationId = kitchenService.provideReservationId(order);
-        String orderReceivedMsg = String.format("[EVENT] orderId[%s] received: prepTime:[%s]ms name:%s", reservationId,
+        String orderReceivedMsg = String.format("[EVENT] order received: orderId[%s] prepTime:[%s]ms name:%s", reservationId,
                 orderReceived.order.prepTime, orderReceived.order.name);
         kLog.append(orderReceived.createdAt, orderReceivedMsg);
-        Optional<Integer> courierDispatched = courierService.dispatchRequest(order, reservationId);
+        Optional<Integer> courierDispatched = courierService.dispatchRequest(order, reservationId, orderReceived.createdAt);
         if(courierDispatched.isPresent()) {
             metricsProcessor.acceptOrderPrepareRequest();
-            kitchenService.prepareMeal(reservationId);
-            return CompletableFuture.completedFuture(true);
+            kitchenService.prepareMeal(reservationId, orderReceived.createdAt);
+            return true;
         } else {
             kLog.append("No couriers available to deliver the order ... cancelling cooking reservation");
             kitchenService.cancelCookReservation(reservationId);
-            return CompletableFuture.completedFuture(false);
+            return false;
         }
     }
 
@@ -103,7 +103,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
             case ORDER_RECEIVED:
                 metricsProcessor.acceptOrderReceived();
                 OrderReceivedEvent orderReceivedEvent = (OrderReceivedEvent) outputEvent;
-                processOrder(orderReceivedEvent).join();
+                processOrder(orderReceivedEvent);
                 break;
             case COURIER_DISPATCHED:
                 CourierDispatchedEvent courierDispatchedEvent = (CourierDispatchedEvent) outputEvent;

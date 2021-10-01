@@ -14,9 +14,10 @@ public interface CourierFleet extends OutputEventPublisher {
      *
      * Dispatches a courier to the kitchen for order pickup, it does
      * @param order an optional order object representing an order that started the
+     * @param now current time
      * @return A dispatch result object or null if no couriers available for dispatch.
      */
-    DispatchResult dispatch(DeliveryOrder order);
+    DispatchResult dispatch(DeliveryOrder order, long now);
 
     /**
      * Releases a courier from the assignment, to get the status back to Available

@@ -1,6 +1,5 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
 import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 
@@ -26,9 +25,10 @@ public interface KitchenService extends OutputEventPublisher {
     /**
      * Instructs the kitchen to start meal preparation as a courier has been reserved to handle the order
      * @param kitchenReservationId the reservation id provided by calling @orderCookReservationId
+     * @param now current time
      * @return a future handle to determine if the notification meal ready was published successfully.
      */
-    CompletableFuture<Boolean> prepareMeal(long kitchenReservationId);
+    CompletableFuture<Boolean> prepareMeal(long kitchenReservationId, long now);
 
     /**
      * Reports whether the kitchen is preparing meals or not

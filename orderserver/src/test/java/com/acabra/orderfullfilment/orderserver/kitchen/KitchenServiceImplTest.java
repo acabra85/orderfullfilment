@@ -1,7 +1,6 @@
 package com.acabra.orderfullfilment.orderserver.kitchen;
 
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
-import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
@@ -12,15 +11,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Deque;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {OrderServerConfig.class})
@@ -30,16 +28,12 @@ class KitchenServiceImplTest {
     private KitchenService underTest;
     private final DeliveryOrder deliveryStub = DeliveryOrder.of("id-order-stub", "banana-split", 3);
     private Deque<OutputEvent> mockDeque;
-    private final OrderServerConfig config;
-
-    KitchenServiceImplTest(@Autowired OrderServerConfig config) {
-        this.config = config;
-    }
+    private final long NOW = 190900000L;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        underTest = new KitchenServiceImpl(new SchedulerExecutorAssistant(this.config));
+        underTest = new KitchenServiceImpl();
         mockDeque = Mockito.mock(ConcurrentLinkedDeque.class);
     }
 
@@ -80,7 +74,7 @@ class KitchenServiceImplTest {
         long reservationId = 999L;
 
         //when
-        ThrowableAssert.ThrowingCallable throwsException = () -> underTest.prepareMeal(reservationId).get();
+        ThrowableAssert.ThrowingCallable throwsException = () -> underTest.prepareMeal(reservationId, NOW).get();
 
         //then
         Assertions.assertThatThrownBy(throwsException)
@@ -102,10 +96,8 @@ class KitchenServiceImplTest {
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
-        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
+        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId, NOW);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
-
-        Thread.sleep(2000L);
         cookHandle.join();
 
         //then
@@ -123,7 +115,7 @@ class KitchenServiceImplTest {
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
-        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
+        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId, NOW);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
         Boolean result = cookHandle.join();
 
@@ -142,7 +134,7 @@ class KitchenServiceImplTest {
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
-        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
+        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId, NOW);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
         Boolean result = cookHandle.join();
 
@@ -159,7 +151,7 @@ class KitchenServiceImplTest {
         Assertions.assertThat(underTest.isKitchenIdle()).isTrue();
 
         //when
-        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId);
+        CompletableFuture<Boolean> cookHandle = underTest.prepareMeal(reservationId, NOW);
         Assertions.assertThat(underTest.isKitchenIdle()).isFalse();
         cookHandle.get();
 
