@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.acabra</groupId>
         <artifactId>orderfullfilment</artifactId>
-        <version>2.4</version>
+        <version>2.5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>ordergenerator</artifactId>
-    <version>1.0</version>
+    <version>1.1</version>
     <name>ordergenerator</name>
     <description>ordergenerator</description>
     <dependencies>
@@ -36,6 +36,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven.surefire.plugin.version}</version>
                 <configuration>
+                    <skipTests>${skip.surefire.tests}</skipTests>
                     <argLine>@{argLine} ${surefireArgLine}</argLine>
                 </configuration>
             </plugin>
@@ -68,6 +69,7 @@
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <version>3.0.2</version>
                 <executions>

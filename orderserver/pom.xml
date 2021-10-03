@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.acabra</groupId>
         <artifactId>orderfullfilment</artifactId>
-        <version>2.4</version>
+        <version>2.5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>orderserver</artifactId>
-    <version>2.4</version>
+    <version>2.5</version>
     <name>orderserver</name>
     <description>orderfullfilment-orderserver</description>
     <dependencies>
@@ -38,6 +38,7 @@
                     <threadCount>6</threadCount>
                     <forkCount>4</forkCount>
                     <reuseForks>true</reuseForks>
+                    <skipTests>${skip.surefire.tests}</skipTests>
                     <excludedGroups>integration-tests</excludedGroups>
                 </configuration>
             </plugin>
@@ -53,9 +54,6 @@
                             <goal>verify</goal>
                         </goals>
                         <configuration>
-                            <includes>
-                                <include>**/*IntegrationTest.java</include>
-                            </includes>
                             <groups>integration-tests</groups>
                         </configuration>
                     </execution>

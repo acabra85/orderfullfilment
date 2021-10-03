@@ -28,12 +28,12 @@ The system has two components a server and an order generator:
    |strategy|the source of the orders to load in the system| *fifo* or *matched*|fifo|
 
 2. Start the server with default strategy fifo
-    ```java -jar orderserver/target/orderserver-2.4.jar```
+    ```java -jar orderserver/target/orderserver-2.5.jar```
     or choose the strategy matched
-    ```java -jar orderserver/target/orderserver-2.4.jar --orderserver.strategy=matched```
+    ```java -jar orderserver/target/orderserver-2.5.jar --orderserver.strategy=matched```
 
 3. Start the order generator system (see the args table)
-    ```java -jar ordergenerator/target/ordergenerator-1.0.jar <GENERATOR_OPTIONAL_ARGS>```
+    ```java -jar ordergenerator/target/ordergenerator-1.1.jar <GENERATOR_OPTIONAL_ARGS>```
     
     #### Generator Optional Arguments
     
@@ -48,7 +48,7 @@ The system has two components a server and an order generator:
     * **your_own_file**: provide a full path of your json file containing an array of Orders e.g. */mypath/to/file/orders.json*
     
     e.g.
-    ```java -jar ordergenerator/target/ordergenerator-1.0.jar /mypath/to/file/orders.json```
+    ```java -jar ordergenerator/target/ordergenerator-1.1.jar /mypath/to/file/orders.json```
 
 ### [Windows (CMD)]:
 Replace the command ```./mvnw``` for ```mvnw.cmd```.
@@ -127,4 +127,4 @@ For a detail of the configuration of the server system take a look at [applicati
 
 It is possible to run the server with a different configuration by launching the application with the parameter **--spring.config.location**
 e.g.
-```java -jar orderserver/target/orderserver-2.4.jar --spring.config.location=/fullpath/to/file/application.properties```
+```java -jar orderserver/target/orderserver-2.5.jar --spring.config.location=/fullpath/to/file/application.properties```
