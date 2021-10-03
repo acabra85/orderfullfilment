@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConstructorBinding;
 @ConfigurationProperties(prefix = "orderserver")
 public class OrderServerConfig {
 
-    public static final int MINIMAL_PERIOD_TIME = 100;
+    public static final int MINIMAL_PERIOD_TIME = 10;
     private final int threadCount;
     private final String strategy;
     private final long periodShutDownMonitorMillis;

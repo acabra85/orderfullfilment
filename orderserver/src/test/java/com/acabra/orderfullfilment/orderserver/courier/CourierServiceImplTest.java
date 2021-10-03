@@ -1,37 +1,33 @@
 package com.acabra.orderfullfilment.orderserver.courier;
 
-import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherFIFOImpl;
 import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcher;
+import com.acabra.orderfullfilment.orderserver.courier.matcher.OrderCourierMatcherFIFOImpl;
 import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
-import com.acabra.orderfullfilment.orderserver.event.OrderDeliveredEvent;
-import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
-import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
+import com.acabra.orderfullfilment.orderserver.event.*;
+import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import org.assertj.core.api.Assertions;
-import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Deque;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 class CourierServiceImplTest {
 
-    private CourierServiceImpl underTest;
-    private final OrderPreparedEvent VALID_ORDER_PREPARED_EVENT = OrderPreparedEvent.of(3213, "dasdsa", 3123123);
+    private final OrderPreparedEvent VALID_ORDER_PREPARED_EVENT = OrderPreparedEvent.of(3213, "some-id", 3123123);
+    private final long NOW = 1000000000L;
 
+    private CourierServiceImpl underTest;
     private CourierFleet fleetMock;
     private OrderCourierMatcher orderCourierMatcherMock;
     private Deque<OutputEvent> mockDeque;
-    private final long NOW = 1000000000L;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     public void setup() {
         fleetMock = Mockito.mock(CourierFleetImpl.class);
         orderCourierMatcherMock = Mockito.mock(OrderCourierMatcherFIFOImpl.class);
@@ -78,7 +74,7 @@ class CourierServiceImplTest {
     }
 
     @Test
-    void mustComplete_whenCouriersAvailableForPickup() throws InterruptedException, ExecutionException {
+    void mustComplete_whenCouriersAvailableForPickup() {
         //given
         underTest = new CourierServiceImpl(fleetMock, orderCourierMatcherMock);
         Mockito.doReturn(true)
@@ -92,9 +88,8 @@ class CourierServiceImplTest {
                 .registerNotificationDeque(mockDeque);
         underTest.registerNotificationDeque(mockDeque);
 
-        CompletableFuture<Boolean> future = CompletableFuture.completedFuture(underTest.processOrderPrepared(VALID_ORDER_PREPARED_EVENT));
         //when
-        boolean actual = future.get();
+        boolean actual = underTest.processOrderPrepared(VALID_ORDER_PREPARED_EVENT);
 
         //then
         Mockito.verifyNoInteractions(mockDeque);
@@ -105,36 +100,7 @@ class CourierServiceImplTest {
     }
 
     @Test
-    void mustComplete_whenCourierIsReleased() {
-
-    }
-
-    @Test
-    void processOrderDelivered_mustCompleteExceptionally_whenCourierIdIsNotFound() {
-        //given
-        OrderDeliveredEvent deliveryEventMock = Mockito.mock(OrderDeliveredEvent.class);
-
-        Mockito.doReturn(0).when(deliveryEventMock).getCourierId();
-        Mockito.doThrow(NoSuchElementException.class)
-                .when(fleetMock)
-                .release(0);
-
-        //when
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> underTest.processOrderDelivered(deliveryEventMock));
-
-        //then
-        ThrowableAssert.ThrowingCallable throwingCallable = future::join;
-
-        //verify
-        Assertions.assertThatThrownBy(throwingCallable)
-                .isInstanceOf(CompletionException.class)
-                .hasMessageContaining("NoSuchElementException");
-        Mockito.verify(fleetMock, Mockito.times(1)).release(0);
-        Mockito.verify(deliveryEventMock, Mockito.times(1)).getCourierId();
-    }
-
-    @Test
-    void processOrderDelivered_mustComplete_whenCourierIdValid() throws ExecutionException, InterruptedException {
+    void processOrderDelivered_mustComplete_whenCourierIdValid() {
         //given
         OrderDeliveredEvent deliveryEventMock = Mockito.mock(OrderDeliveredEvent.class);
 
@@ -144,14 +110,78 @@ class CourierServiceImplTest {
                 .release(0);
 
         //when
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> underTest.processOrderDelivered(deliveryEventMock));
+        underTest.processOrderDelivered(deliveryEventMock);
 
         //then
-        future.get();
 
         //verify
-        Assertions.assertThat(future.isDone()).isTrue();
         Mockito.verify(fleetMock, Mockito.times(1)).release(0);
         Mockito.verify(deliveryEventMock, Mockito.times(1)).getCourierId();
+    }
+
+    @Test
+    void processCourierArrived_mustComplete_whenCourierIdValid() {
+        //given
+        CourierArrivedEvent courierArrivedMock = Mockito.mock(CourierArrivedEvent.class);
+
+        Mockito.doNothing()
+                .when(fleetMock)
+                .release(0);
+        Mockito.doReturn(true).when(orderCourierMatcherMock).acceptCourierArrivedEvent(courierArrivedMock);
+
+        //when
+        boolean actual = underTest.processCourierArrived(courierArrivedMock);
+
+        //then
+        //verify
+        Assertions.assertThat(actual).isEqualTo(true);
+        Mockito.verify(fleetMock, Mockito.times(0)).release(0);
+        Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).acceptCourierArrivedEvent(courierArrivedMock);
+    }
+
+    @Test
+    public void mustCallTheCourierMatcher_givenADispachedEventIsReceived() {
+        //given
+        CourierDispatchedEvent courierDispatchedEvtMock = Mockito.mock(CourierDispatchedEvent.class);
+        Mockito.doNothing().when(orderCourierMatcherMock).processCourierDispatchedEvent(courierDispatchedEvtMock);
+
+        //when
+        underTest.processCourierDispatchedEvent(courierDispatchedEvtMock);
+
+        //then
+        //verify
+        Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).processCourierDispatchedEvent(courierDispatchedEvtMock);
+    }
+
+    @Test
+    public void mustLogError_givenFailedToPublishEvent() {
+        //given
+        DispatchResult dispatchResultStub = DispatchResult.of(2500, CompletableFuture.completedFuture(true), 1000L);
+        DeliveryOrder orderStub = DeliveryOrder.of("order-id", "some-food", 3);
+        Mockito.doNothing()
+                .when(orderCourierMatcherMock)
+                .registerNotificationDeque(mockDeque);
+        Mockito.doReturn(dispatchResultStub)
+                .when(fleetMock)
+                .dispatch(orderStub, NOW);
+        Mockito.doNothing()
+                .when(fleetMock)
+                .registerNotificationDeque(mockDeque);
+        Mockito.doThrow(new RuntimeException("unable to offer"))
+                .when(mockDeque)
+                .offer(Mockito.any(CourierDispatchedEvent.class));
+
+        underTest = new CourierServiceImpl(fleetMock, orderCourierMatcherMock);
+        underTest.registerNotificationDeque(mockDeque);
+
+        //when
+        Optional<Integer> actual = underTest.dispatchRequest(orderStub, 1, NOW);
+
+        //then
+        Mockito.verify(fleetMock, Mockito.times(1)).registerNotificationDeque(mockDeque);
+        Mockito.verify(fleetMock, Mockito.times(1)).dispatch(orderStub, NOW);
+        Mockito.verify(mockDeque, Mockito.times(1)).offer(Mockito.any(CourierDispatchedEvent.class));
+        Mockito.verify(orderCourierMatcherMock, Mockito.times(1)).registerNotificationDeque(mockDeque);
+        Assertions.assertThat(actual.orElse(null)).isEqualTo(2500);
     }
 }

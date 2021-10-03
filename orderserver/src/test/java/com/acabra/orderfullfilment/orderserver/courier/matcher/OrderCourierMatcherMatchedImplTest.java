@@ -5,12 +5,16 @@ import com.acabra.orderfullfilment.orderserver.TestUtils.DispatchMatch;
 import com.acabra.orderfullfilment.orderserver.TestUtils;
 import com.acabra.orderfullfilment.orderserver.event.CourierArrivedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
+import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
 
 class OrderCourierMatcherMatchedImplTest {
 
@@ -122,7 +126,29 @@ class OrderCourierMatcherMatchedImplTest {
     }
 
     @Test
-    void registerNotificationDeque() {
+    @SuppressWarnings("unchecked")
+    public void shouldFailPublication_givenMatchCourierNotPresent() {
+        //given
+        OrderPreparedEvent orderWillBeMatched = OrderPreparedEvent.of(10, "", 1000);
+        CourierArrivedEvent courierWaiting = CourierArrivedEvent.of(1, 100, 100);
+
+        //register events to matcher
+        buildMatchedOrdersAndCouriers().stream()
+                .map(TestUtils::buildDispatchEvent)
+                .forEach(underTest::processCourierDispatchedEvent);
+
+        Queue<OutputEvent> mockQ = Mockito.mock(ArrayDeque.class);
+        Mockito.doThrow(new RuntimeException("fail publish")).when(mockQ).offer(Mockito.any());
+
+        underTest.registerNotificationDeque(mockQ);
+        Assertions.assertThat(underTest.acceptCourierArrivedEvent(courierWaiting)).isTrue();
+
+        //when
+        boolean actual = underTest.acceptOrderPreparedEvent(orderWillBeMatched);
+
+        //then
+        Mockito.verify(mockQ, Mockito.times(1)).offer(Mockito.any());
+        Assertions.assertThat(actual).isTrue();
     }
 
     private List<DispatchMatch> buildMatchedOrdersAndCouriers() {

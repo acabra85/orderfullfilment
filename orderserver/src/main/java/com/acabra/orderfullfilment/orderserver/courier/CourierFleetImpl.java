@@ -7,7 +7,6 @@ import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -113,8 +112,7 @@ public class CourierFleetImpl implements CourierFleet {
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
-
 }

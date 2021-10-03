@@ -1,2 +1,2 @@
 #!/bin/sh
-./mvnw clean && mkdir target && ./mvnw verify > target/build.orig && tail -12 target/build.orig
+./mvnw clean && mkdir target && ./mvnw verify > target/build.orig ; tail -12 target/build.orig

@@ -19,14 +19,12 @@ import com.acabra.orderfullfilment.orderserver.kitchen.KitchenServiceImpl;
 import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.data.Offset;
-import org.junit.experimental.categories.Categories;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.test.context.ContextConfiguration;
@@ -48,6 +46,7 @@ import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 @ContextConfiguration(classes = {OrderServerConfig.class, CourierConfig.class})
 @TestPropertySource("classpath:application-integ.properties")
 @Tag("integration-tests")
+@Order(1)
 public class StrategyFIFOIntegrationTest {
 
     @Autowired

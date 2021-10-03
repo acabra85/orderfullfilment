@@ -5,7 +5,6 @@ import com.acabra.orderfullfilment.orderserver.courier.model.DispatchResult;
 import com.acabra.orderfullfilment.orderserver.event.*;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -69,8 +68,8 @@ public class CourierServiceImpl implements CourierDispatchService {
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
 
     @Override

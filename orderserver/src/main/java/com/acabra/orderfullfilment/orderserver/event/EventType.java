@@ -9,7 +9,8 @@ public enum EventType {
     COURIER_ARRIVED("courier arrived", Constants.SHARED_PRIORITY),
     ORDER_PREPARED("order prepared", Constants.SHARED_PRIORITY),
     ORDER_RECEIVED("order received", 5),
-    NO_PENDING_ORDERS("no pending orders", 6); // the orders queue is empty all workers are waiting
+    NO_PENDING_ORDERS("no pending orders", 6),
+    UNIMPLEMENTED("left for edge purposes", 999); // the orders queue is empty all workers are waiting
 
     private static final Comparator<EventType> COMP = Comparator.comparing(a -> a.priority);
     public final String message;

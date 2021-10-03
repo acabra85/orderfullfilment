@@ -34,12 +34,13 @@ class OrderCourierMatcherFIFOImplTest {
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101));
+        boolean actual = underTest.acceptCourierArrivedEvent(CourierArrivedEvent.of(1, 100, 101));
 
         //then
         OutputEvent outputEvent = completionFuture.get();
         Assertions.assertThat(outputEvent).isNotNull();
         Assertions.assertThat(outputEvent.type).isEqualTo(EventType.ORDER_PICKED_UP);
+        Assertions.assertThat(actual).isFalse();
     }
 
     @Test
@@ -57,12 +58,13 @@ class OrderCourierMatcherFIFOImplTest {
                 CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        boolean actual = underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.get();
         Assertions.assertThat(outputEvent).isNotNull();
         Assertions.assertThat(outputEvent.type).isEqualTo(EventType.ORDER_PICKED_UP);
+        Assertions.assertThat(actual).isFalse();
     }
 
     @Test
@@ -76,15 +78,17 @@ class OrderCourierMatcherFIFOImplTest {
                 CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        boolean actual = underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.getNow(null);
         Assertions.assertThat(outputEvent).isNull();
+        Assertions.assertThat(actual).isFalse();
     }
 
     @Test
-    public void mustReturnNull_exceptionThrownWhilePublishing() throws InterruptedException {
+    @SuppressWarnings("unchecked")
+    public void mustReturnNull_exceptionThrownWhilePublishing() {
         //given
         Deque<OutputEvent> queueMock = Mockito.mock(ConcurrentLinkedDeque.class);
         Mockito.doThrow(RuntimeException.class).when(queueMock).offer(Mockito.any(OutputEvent.class));
@@ -96,10 +100,11 @@ class OrderCourierMatcherFIFOImplTest {
             CompletableFuture.delayedExecutor(30, TimeUnit.MILLISECONDS));
 
         //when
-        underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
+        boolean actual = underTest.acceptOrderPreparedEvent(OrderPreparedEvent.of(1, "meal-id", 80));
 
         //then
         OutputEvent outputEvent = completionFuture.getNow(null);
         Assertions.assertThat(outputEvent).isNull();
+        Assertions.assertThat(actual).isFalse();
     }
 }

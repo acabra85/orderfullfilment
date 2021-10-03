@@ -1,7 +1,5 @@
 package com.acabra.orderfullfilment.orderserver.event;
 
-import org.slf4j.Logger;
-
 import java.util.Queue;
 
 public interface OutputEventPublisher {
@@ -20,9 +18,10 @@ public interface OutputEventPublisher {
 
     /**
      * Provides the logger for the implementation
-     * @return a logger object
+     * @param msg message to display
+     * @param e throwable causing the error
      */
-    Logger log();
+    void logError(String msg, Throwable e);
 
     default boolean publish(OutputEvent event) {
         Queue<OutputEvent> pubDeque = getPubDeque();
@@ -31,7 +30,7 @@ public interface OutputEventPublisher {
                 pubDeque.offer(event);
                 return true;
             } catch (Throwable e) {
-                log().error("Unable to publish event: {}", e.getMessage(), e);
+                logError("Unable to publish event: " + e.getMessage(), e);
             }
         }
         return false;

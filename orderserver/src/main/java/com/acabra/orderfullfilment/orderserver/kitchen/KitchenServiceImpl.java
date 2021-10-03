@@ -4,7 +4,6 @@ import com.acabra.orderfullfilment.orderserver.event.OrderPreparedEvent;
 import com.acabra.orderfullfilment.orderserver.event.OutputEvent;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.stereotype.Service;
 
 import java.util.NoSuchElementException;
@@ -76,8 +75,8 @@ public class KitchenServiceImpl implements KitchenService {
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
 
     @Override

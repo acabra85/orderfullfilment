@@ -7,10 +7,8 @@ import com.acabra.orderfullfilment.orderserver.event.OutputEventPublisher;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 
-import java.util.Deque;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -43,7 +41,7 @@ public class OrderRequestHandler implements OutputEventPublisher, Consumer<Deliv
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
 }

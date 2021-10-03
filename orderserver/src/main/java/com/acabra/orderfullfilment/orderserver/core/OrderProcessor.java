@@ -1,17 +1,15 @@
 package com.acabra.orderfullfilment.orderserver.core;
 
-import com.acabra.orderfullfilment.orderserver.KitchenLog;
+import com.acabra.orderfullfilment.orderserver.kitchen.KitchenLog;
 import com.acabra.orderfullfilment.orderserver.config.OrderServerConfig;
 import com.acabra.orderfullfilment.orderserver.core.executor.NoMoreOrdersMonitor;
-import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.core.executor.OutputEventHandler;
 import com.acabra.orderfullfilment.orderserver.core.executor.SafeTask;
+import com.acabra.orderfullfilment.orderserver.core.executor.SchedulerExecutorAssistant;
 import com.acabra.orderfullfilment.orderserver.courier.CourierDispatchService;
 import com.acabra.orderfullfilment.orderserver.event.*;
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import com.acabra.orderfullfilment.orderserver.kitchen.KitchenService;
 import com.acabra.orderfullfilment.orderserver.model.DeliveryOrder;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringApplication;
@@ -20,10 +18,10 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
-import java.util.Deque;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -80,7 +78,7 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         return snapshot.totalOrdersPrepared - snapshot.totalOrdersDelivered > 0;
     }
 
-    private boolean processOrder(final OrderReceivedEvent orderReceived) {
+    private void processOrder(final OrderReceivedEvent orderReceived) {
         DeliveryOrder order = orderReceived.order;
         final long reservationId = kitchenService.provideReservationId(order);
         String orderReceivedMsg = String.format("[EVENT] order received: orderId[%s] prepTime:[%s]ms name:%s", reservationId,
@@ -90,12 +88,10 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
         if(courierDispatched.isPresent()) {
             metricsProcessor.acceptOrderPrepareRequest();
             kitchenService.prepareMeal(reservationId, orderReceived.createdAt);
-            return true;
-        } else {
-            kLog.append("No couriers available to deliver the order ... cancelling cooking reservation");
-            kitchenService.cancelCookReservation(reservationId);
-            return false;
+            return;
         }
+        kLog.append("No couriers available to deliver the order ... cancelling cooking reservation");
+        kitchenService.cancelCookReservation(reservationId);
     }
 
     private void dispatchOutputEvent(final OutputEvent outputEvent) {
@@ -173,16 +169,16 @@ public class OrderProcessor implements Closeable, ApplicationContextAware {
 
     @Override
     public void close() {
-        if (!this.schedulerAssistant.isOrdersMonitorTerminated()) {
+        if (!this.completedHandle.isDone()) {
             kLog.append("[SYSTEM] queue processing shutting down, no orders remaining");
-            kLog.printLog();
             this.schedulerAssistant.shutdown();
             this.courierService.shutdown();
             this.kitchenService.shutdown();
+            this.completedHandle.complete(null);
             if(null != this.context) {
                 System.exit(SpringApplication.exit(this.context, () -> 0));
             }
-            this.completedHandle.complete(null);
+            kLog.printLog();
         }
     }
 

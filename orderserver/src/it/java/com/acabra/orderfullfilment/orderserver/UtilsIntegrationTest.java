@@ -44,7 +44,7 @@ public class UtilsIntegrationTest {
             } else {
                 orderHandler.accept(ordersIterator.next());
             }
-        },0, 100L, TimeUnit.MILLISECONDS);
+        },0, 10L, TimeUnit.MILLISECONDS);
         return executorService;
     }
 }

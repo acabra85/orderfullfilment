@@ -2,7 +2,6 @@ package com.acabra.orderfullfilment.orderserver.courier.matcher;
 
 import com.acabra.orderfullfilment.orderserver.event.*;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -36,39 +35,27 @@ public class OrderCourierMatcherFIFOImpl implements OrderCourierMatcher {
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
 
     @Override
     public boolean acceptOrderPreparedEvent(OrderPreparedEvent orderEvt) {
-        try {
-            CourierArrivedEvent courierEvt = couriersArrived.poll();
-            if (null != courierEvt) {
-                publish(OrderPickedUpEvent.of(courierEvt, orderEvt));
-            } else {
-                mealsPrepared.offer(orderEvt);
-            }
-            return true;
-        } catch (Exception e) {
-            log.error("Unable to handle the mealPrepared event: {}", e.getMessage(), e);
+        CourierArrivedEvent courierEvt = couriersArrived.poll();
+        if (null != courierEvt) {
+            return publish(OrderPickedUpEvent.of(courierEvt, orderEvt));
         }
+        mealsPrepared.offer(orderEvt);
         return false;
     }
 
     @Override
     public boolean acceptCourierArrivedEvent(CourierArrivedEvent courierEvt) {
-        try {
-            OrderPreparedEvent orderEvt = mealsPrepared.poll();
-            if (null != orderEvt) {
-                publish(OrderPickedUpEvent.of(courierEvt, orderEvt));
-            } else {
-                couriersArrived.offer(courierEvt);
-            }
-            return true;
-        } catch (Exception e) {
-            log.error("Unable to handle the mealPrepared event: {}", e.getMessage(), e);
+        OrderPreparedEvent orderEvt = mealsPrepared.poll();
+        if (null != orderEvt) {
+            return publish(OrderPickedUpEvent.of(courierEvt, orderEvt));
         }
+        couriersArrived.offer(courierEvt);
         return false;
     }
 

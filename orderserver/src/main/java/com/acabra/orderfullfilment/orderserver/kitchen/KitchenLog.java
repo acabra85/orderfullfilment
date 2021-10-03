@@ -1,6 +1,5 @@
-package com.acabra.orderfullfilment.orderserver;
+package com.acabra.orderfullfilment.orderserver.kitchen;
 
-import com.acabra.orderfullfilment.orderserver.kitchen.KitchenClock;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Comparator;
@@ -20,8 +19,6 @@ public class KitchenLog {
     }
 
     public void printLog() {
-        if(events.isEmpty()) return;
-        int i = 0;
         while (!events.isEmpty()) {
             log.info("{} -> {}", KitchenClock.formatted(events.peek().timeStamp), events.remove().text);
         }

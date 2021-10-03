@@ -2,7 +2,6 @@ package com.acabra.orderfullfilment.orderserver.courier.matcher;
 
 import com.acabra.orderfullfilment.orderserver.event.*;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -89,8 +88,8 @@ public class OrderCourierMatcherMatchedImpl implements OrderCourierMatcher {
     }
 
     @Override
-    public Logger log() {
-        return log;
+    public void logError(String msg, Throwable e) {
+        log.error(msg, e);
     }
 
     @Override

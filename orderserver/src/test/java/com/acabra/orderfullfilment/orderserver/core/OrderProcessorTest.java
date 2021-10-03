@@ -19,10 +19,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.Deque;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
 
 @ExtendWith(SpringExtension.class)
@@ -38,6 +37,7 @@ class OrderProcessorTest {
     private CourierDispatchService courierServiceMock;
     private KitchenService kitchenServiceMock;
     private SchedulerExecutorAssistant scheduler;
+    private Queue<OutputEvent> deque;
 
     OrderProcessorTest(@Autowired OrderServerConfig config) {
         this.config = config;
@@ -50,6 +50,7 @@ class OrderProcessorTest {
         kitchenServiceMock = Mockito.mock(KitchenServiceImpl.class);
         outputEventPublisherMock = Mockito.mock(OrderRequestHandler.class);
         this.scheduler = new SchedulerExecutorAssistant(this.config);
+        this.deque = OrderProcessor.buildNotificationDeque();
     }
 
     @AfterEach
@@ -63,7 +64,6 @@ class OrderProcessorTest {
     @Test
     void mustProcessOrderPreparedEvent() throws InterruptedException {
         //given
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         OrderPreparedEvent orderPreparedEventStub = Mockito.mock(OrderPreparedEvent.class);
 
         //#setup
@@ -111,7 +111,6 @@ class OrderProcessorTest {
     @Test
     void mustProcessCourierArrivedEvent() throws InterruptedException {
         //given
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         CourierArrivedEvent courierArrivedEvent =  Mockito.mock(CourierArrivedEvent.class);
 
         //#setup
@@ -153,7 +152,6 @@ class OrderProcessorTest {
     @Test
     void mustProcessCourierDispatchedEvent() throws InterruptedException {
         //given
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         CourierDispatchedEvent courierDispatchedEvent = Mockito.mock(CourierDispatchedEvent.class);
 
         //#setup
@@ -198,7 +196,6 @@ class OrderProcessorTest {
         //given
         Integer courierId = 1;
         long cookReservationId = 0L;
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         OrderReceivedEvent orderReceivedEvent = OrderReceivedEvent.of(5, bananaSplitOrder);
 
         //#setup courier
@@ -256,7 +253,6 @@ class OrderProcessorTest {
     void mustProcessOrderReceivedEvent_givenThatNoCouriersAvailableAndKitchenAcceptsReservation() throws InterruptedException {
         //given
         long cookReservationId = 0L;
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
         OrderReceivedEvent orderReceivedEvent = OrderReceivedEvent.of(5, bananaSplitOrder);
 
         //#setup courier
@@ -310,10 +306,9 @@ class OrderProcessorTest {
         //given
         int courierId = 1;
         long kitchenReservationId = 0L;
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
-        OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent
-                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L),
-                        OrderPreparedEvent.of(kitchenReservationId, "order-id", 900L), true, 500L);
+        OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent.of(
+                        CourierArrivedEvent.of(courierId, 250, 9800L),
+                        OrderPreparedEvent.of(kitchenReservationId, "order-id", 900L));
         OrderDeliveredEvent orderDeliveredEvent = OrderDeliveredEvent.of(orderPickedUpEventStub);
 
         //#setup courier
@@ -354,14 +349,6 @@ class OrderProcessorTest {
     @Test
     void mustFinishNoOrdersReceived() {
         //given
-        int courierId = 1;
-        long kitchenReservationId = 0L;
-        Deque<OutputEvent> deque = new ConcurrentLinkedDeque<>();
-        OrderPickedUpEvent orderPickedUpEventStub = OrderPickedUpEvent
-                .of(10000L, CourierArrivedEvent.of(courierId, 250, 9800L),
-                        OrderPreparedEvent.of(kitchenReservationId, "order-id", 900L), false, 500L);
-        OrderDeliveredEvent orderDeliveredEvent = OrderDeliveredEvent.of(orderPickedUpEventStub);
-
         //#setup courier
         Mockito.doNothing().when(courierServiceMock).registerNotificationDeque(deque);
         Mockito.doNothing().when(courierServiceMock).shutdown();
@@ -376,14 +363,112 @@ class OrderProcessorTest {
                 deque, this.scheduler);
 
         //when
-        MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         CompletableFuture<Void> completedHandle = underTest.getCompletedHandle();
         completedHandle.join();
+        MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
+        underTest.close();  //attempt to close a finished Processor
 
         //then
         Assertions.assertThat(completedHandle.isDone()).isTrue();
+        Assertions.assertThat(metricsSnapshot.totalOrdersReceived).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersPrepared).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersDelivered).isEqualTo(0);
         //verify mocks
         Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).shutdown();
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).shutdown();
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
+    }
+
+    @Test
+    void mustIgnoreTask_givenTypeIsNull() throws InterruptedException {
+        //given
+        OrderPreparedEvent orderPreparedEventStub = Mockito.mock(OrderPreparedEvent.class);
+
+        //#setup
+        Mockito.doReturn(null).when(orderPreparedEventStub).getType();
+
+        //#setup courier
+        Mockito.doNothing()
+                .when(courierServiceMock).shutdown();
+        Mockito.doNothing().when(courierServiceMock).registerNotificationDeque(deque);
+        Mockito.when(courierServiceMock.processOrderPrepared(orderPreparedEventStub))
+                .thenReturn(true);
+
+        //#setup kitchen
+        Mockito.doNothing()
+                .when(kitchenServiceMock).shutdown();
+        Mockito.doNothing().when(kitchenServiceMock).registerNotificationDeque(deque);
+
+        //#setup handler
+        Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
+
+        //when
+        deque.offer(orderPreparedEventStub); //send the event on the queue for processing
+        Thread.sleep(2000L);
+        MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
+        underTest.close();
+        underTest.getCompletedHandle().join();
+
+
+        //then
+        Assertions.assertThat(metricsSnapshot.totalOrdersReceived).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersPrepared).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersDelivered).isEqualTo(0);
+
+        //verify mocks
+        Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(courierServiceMock, Mockito.times(0)).processOrderPrepared(orderPreparedEventStub);
+        Mockito.verify(courierServiceMock, Mockito.times(1)).shutdown();
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).shutdown();
+        Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(outputEventPublisherMock, Mockito.times(1)).registerNotificationDeque(deque);
+    }
+
+    @Test
+    void mustIgnoreTask_givenUnrecognizedTypeEnum() throws InterruptedException {
+        //given
+        OrderPreparedEvent orderPreparedEventStub = Mockito.mock(OrderPreparedEvent.class);
+
+        //#setup
+        Mockito.doReturn(EventType.UNIMPLEMENTED).when(orderPreparedEventStub).getType();
+
+        //#setup courier
+        Mockito.doNothing()
+                .when(courierServiceMock).shutdown();
+        Mockito.doNothing().when(courierServiceMock).registerNotificationDeque(deque);
+        Mockito.when(courierServiceMock.processOrderPrepared(orderPreparedEventStub))
+                .thenReturn(true);
+
+        //#setup kitchen
+        Mockito.doNothing()
+                .when(kitchenServiceMock).shutdown();
+        Mockito.doNothing().when(kitchenServiceMock).registerNotificationDeque(deque);
+
+        //#setup handler
+        Mockito.doNothing().when(outputEventPublisherMock).registerNotificationDeque(deque);
+        underTest = new OrderProcessor(config, courierServiceMock, kitchenServiceMock, outputEventPublisherMock,
+                deque, this.scheduler);
+
+        //when
+        deque.offer(orderPreparedEventStub); //send the event on the queue for processing
+        Thread.sleep(2000L);
+        MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
+        underTest.close();
+        underTest.getCompletedHandle().join();
+
+
+        //then
+        Assertions.assertThat(metricsSnapshot.totalOrdersReceived).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersPrepared).isEqualTo(0);
+        Assertions.assertThat(metricsSnapshot.totalOrdersDelivered).isEqualTo(0);
+
+        //verify mocks
+        Mockito.verify(courierServiceMock, Mockito.times(1)).registerNotificationDeque(deque);
+        Mockito.verify(courierServiceMock, Mockito.times(0)).processOrderPrepared(orderPreparedEventStub);
         Mockito.verify(courierServiceMock, Mockito.times(1)).shutdown();
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).shutdown();
         Mockito.verify(kitchenServiceMock, Mockito.times(1)).registerNotificationDeque(deque);

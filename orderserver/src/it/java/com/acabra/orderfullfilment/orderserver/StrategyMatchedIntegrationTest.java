@@ -20,6 +20,7 @@ import com.acabra.orderfullfilment.orderserver.utils.EtaEstimator;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,6 +46,7 @@ import static com.acabra.orderfullfilment.orderserver.UtilsIntegrationTest.*;
 @ContextConfiguration(classes = {OrderServerConfig.class, CourierConfig.class})
 @TestPropertySource("classpath:application-integ.properties")
 @Tag("integration-tests")
+@Order(2)
 public class StrategyMatchedIntegrationTest {
     @Autowired
     private OrderServerConfig serverConfig;
