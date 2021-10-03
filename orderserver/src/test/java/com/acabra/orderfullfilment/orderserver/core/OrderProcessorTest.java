@@ -88,7 +88,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -171,7 +171,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(courierDispatchedEvent); //send the event on the queue for processing
-        Thread.sleep(2000L); //we force close of resources since unit test is only for one event.
+        Thread.sleep(500L); //we force close of resources since unit test is only for one event.
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -227,7 +227,7 @@ class OrderProcessorTest {
         * since this unit test only wants to test the event orderReceivedEvent it is reasonable
         * to stop it.
         * */
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -280,7 +280,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderReceivedEvent);
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -327,7 +327,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPickedUpEventStub);
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -408,7 +408,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();
@@ -455,7 +455,7 @@ class OrderProcessorTest {
 
         //when
         deque.offer(orderPreparedEventStub); //send the event on the queue for processing
-        Thread.sleep(2000L);
+        Thread.sleep(500L);
         MetricsProcessor.DeliveryMetricsSnapshot metricsSnapshot = underTest.getMetricsSnapshot();
         underTest.close();
         underTest.getCompletedHandle().join();

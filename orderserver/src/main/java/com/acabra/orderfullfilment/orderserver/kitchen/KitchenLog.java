@@ -18,7 +18,7 @@ public class KitchenLog {
         return instance;
     }
 
-    public void printLog() {
+    synchronized public void printLog() {
         while (!events.isEmpty()) {
             log.info("{} -> {}", KitchenClock.formatted(events.peek().timeStamp), events.remove().text);
         }

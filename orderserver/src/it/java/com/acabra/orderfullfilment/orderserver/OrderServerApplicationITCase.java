@@ -10,6 +10,6 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource("classpath:application-integ.properties")
 @Tag("integration-tests")
 @Order(Order.DEFAULT)
-class OrderServerApplicationIntegrationTest {
+class OrderServerApplicationITCase {
     @Test void contextLoads() {}
 }
